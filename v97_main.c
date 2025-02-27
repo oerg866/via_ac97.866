@@ -3,7 +3,7 @@
  *
  * (C) 2025 Eric Voirin (Oerg866)
  *
- * LICENSE: CC-BY-NC 3.0
+ * LICENSE: CC-BY-NC-SA 4.0
  *
  * VIA VT82C686x AC97 Initialization Driver for DOS
  *
@@ -16,7 +16,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <sys/stat.h>
-//#include <graph.h>
 
 #include "types.h"
 #include "pci.h"
