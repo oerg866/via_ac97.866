@@ -356,7 +356,7 @@ static bool v97_setupFM(pci_Device dev, bool enable) {
     funcEnable.fmEnable = enable;
     v97_setFuncEnableReg(dev, funcEnable);
 
-    return enable == v97_getFuncEnableReg(dev).midiEnable;
+    return enable == v97_getFuncEnableReg(dev).fmEnable;
 }
 
 static void v97_printChipStatus (pci_Device dev, ac97_Interface *ac) {
