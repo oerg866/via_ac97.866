@@ -620,10 +620,10 @@ static const args_arg v97_supportedArgs[] = {
     { "v_wave",     "volume",   "Mixer: Set Wave Volume (0-31)",        ARG_U16, &v97_args.volumes[1].setup, &v97_args.volumes[1].volume, NULL },
     { "v_pcspk",    "volume",   "Mixer: Set PC Speaker Volume (0-15)",  ARG_U16, &v97_args.volumes[2].setup, &v97_args.volumes[2].volume, NULL },
     { "v_mic",      "volume",   "Mixer: Set Mic Volume (0-31)",         ARG_U16, &v97_args.volumes[3].setup, &v97_args.volumes[3].volume, NULL },
-    { "v_cd",       "volume",   "Mixer: Set CD Audio Volume (0-31)",    ARG_U16, &v97_args.volumes[4].setup, &v97_args.volumes[4].volume, NULL },
-    { "v_video",    "volume",   "Mixer: Set Video Input Volume (0-31)", ARG_U16, &v97_args.volumes[5].setup, &v97_args.volumes[5].volume, NULL },
-    { "v_aux",      "volume",   "Mixer: Set Aux Input Volume (0-31)",   ARG_U16, &v97_args.volumes[6].setup, &v97_args.volumes[6].volume, NULL },
-
+    { "v_line",     "volume",   "Mixer: Set Line Input Volume (0-31)",  ARG_U16, &v97_args.volumes[4].setup, &v97_args.volumes[4].volume, NULL },
+    { "v_cd",       "volume",   "Mixer: Set CD Audio Volume (0-31)",    ARG_U16, &v97_args.volumes[5].setup, &v97_args.volumes[5].volume, NULL },
+    { "v_video",    "volume",   "Mixer: Set Video Input Volume (0-31)", ARG_U16, &v97_args.volumes[6].setup, &v97_args.volumes[6].volume, NULL },
+    { "v_aux",      "volume",   "Mixer: Set Aux Input Volume (0-31)",   ARG_U16, &v97_args.volumes[7].setup, &v97_args.volumes[7].volume, NULL },
     { "micboost",   "0/1",      "Disable/Enable Mic Boost",             ARG_BOOL, &v97_args.micBoost.setup, &v97_args.micBoost.enable, NULL },
     { "3d",         "0/1",      "Disable/Enable 3D Surround",           ARG_BOOL, &v97_args.surround.setup, &v97_args.surround.enable, NULL },
 };
