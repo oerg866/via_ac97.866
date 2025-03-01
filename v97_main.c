@@ -36,53 +36,11 @@
 #define V97_DATA_SHIFT              (0UL)
 #define V97_CODEC_IO_OFFSET         (0x80)
 
-#define V97_PCI_REG_AC_LINK_STATUS  0x40
-#define V97_PCI_REG_AC_LINK_CTRL    0x41
-#define V97_PCI_REG_FUNC_ENABLE     0x42
-#define V97_PCI_REG_PNP_CTRL        0x43
-
-/* Register 0x40 - AC Link Interface Status */
-typedef struct {
-    u8 ready                : 1;
-    u8 _dont_care_          : 7;
-} v97_ACLinkStatus;
-
-/* Register 0x41 - AC Link Interface Control */
-typedef struct {
-    u8 sbPcmDataOutput      : 1;
-    u8 fmPcmDataOutput      : 1;
-    u8 _dont_care_          : 4;
-    u8 reset                : 1;
-    u8 interfaceEnable      : 1;
-} v97_ACLinkCtrl;
-
-/* Register 0x42 - Function Enable */
-typedef struct {
-    u8 sbEnable             : 1;
-    u8 midiEnable           : 1;
-    u8 fmEnable             : 1;
-    u8 joyEnable            : 1;
-    u8 sbpcmEmptyFifoGate   : 1;
-    u8 reg2CWritable        : 1;
-    u8 maskMidiIrq          : 1;
-    u8 midiPortCfgSwitch    : 1;
-} v97_FuncEnable;
-
-/* Register 0x43 - PnP Control */
-typedef struct {
-    u8 sbPort               : 2;
-    u8 midiPort             : 2;
-    u8 sbDma                : 2;
-    u8 sbIrq                : 2;
-} v97_PnpCtrl;
-
-
 /* Structure for register bits -> representative value look-ups */
 typedef struct {
     u8  bits;
     u16 value;
 } v97_RegBits;
-
 
 /* This structure holds all the arguments passed to the program. */
 typedef struct {
