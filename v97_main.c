@@ -597,6 +597,8 @@ static const args_arg v97_supportedArgs[] = {
     { "v_cd",       "volume",   "Mixer: Set CD Audio Volume (0-31)",    ARG_U16, &v97_args.volumes[5].setup, &v97_args.volumes[5].volume, NULL },
     { "v_video",    "volume",   "Mixer: Set Video Input Volume (0-31)", ARG_U16, &v97_args.volumes[6].setup, &v97_args.volumes[6].volume, NULL },
     { "v_aux",      "volume",   "Mixer: Set Aux Input Volume (0-31)",   ARG_U16, &v97_args.volumes[7].setup, &v97_args.volumes[7].volume, NULL },
+    { "v_line2",    "volume",   "Mixer: Set Line Out 2 Volume (0-31)",  ARG_U16, &v97_args.volumes[8].setup, &v97_args.volumes[8].volume, NULL },
+
     { "micboost",   "0/1",      "Disable/Enable Mic Boost",             ARG_BOOL, &v97_args.micBoost.setup, &v97_args.micBoost.enable, NULL },
     { "3d",         "0/1",      "Disable/Enable 3D Surround",           ARG_BOOL, &v97_args.surround.setup, &v97_args.surround.enable, NULL },
 
