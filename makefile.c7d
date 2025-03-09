@@ -1,0 +1,52 @@
+CC  = cl
+ASM = ml
+LINK = link
+
+CFLAGS = /c /f- /W2 /G2 /FPi87 /Gx /Os /Gs /DDOS16 /ILIB866D /I. /nologo
+AFLAGS = /c /Cx /W2 /WX /nologo
+
+!IF "$(DMA_SAMPLES_PER_BUFFER)"==""
+DMA_SAMPLES_PER_BUFFER = 192
+!ENDIF
+
+!IF "$(DMA_BUFFER_COUNT)"==""
+DMA_BUFFER_COUNT = 2
+!ENDIF
+
+CFLAGS_DMA = $(CFLAGS) /DDMA_SAMPLES_PER_BUFFER=$(DMA_SAMPLES_PER_BUFFER) /DDMA_BUFFER_COUNT=$(DMA_BUFFER_COUNT)
+AFLAGS_DMA = $(AFLAGS) /DDMA_SAMPLES_PER_BUFFER=$(DMA_SAMPLES_PER_BUFFER) /DDMA_BUFFER_COUNT=$(DMA_BUFFER_COUNT)
+
+TARGETS : V97TSR.EXE
+
+# Maybe some day....
+# !IF "$(WOODYOPL)"=="1"
+# !MESSAGE Using WOODY-OPL3
+# CFLAGS = $(CFLAGS) /DOPL3_WOODY
+# OPL_OBJ = woodyopl/opl.c
+# !ELSE
+# !MESSAGE Using NUKED-OPL3
+# CFLAGS = $(CFLAGS) /DOPL3_NUKED
+# OPL_OBJ = nukedopl/opl3.c
+# !ENDIF
+
+# !IF "$(LOGGING)"=="1"
+# !MESSAGE Building with LOGGING ENABLED
+# CFLAGS = $(CFLAGS) /DLOGGING
+# !ENDIF
+
+clean:
+    del vfm_*.obj
+    del V97TSR.EXE
+
+V97TSR.EXE : clean
+    $(ASM) $(AFLAGS) vfm_opt.asm
+    $(ASM) $(AFLAGS_DMA) vfm_isr.asm
+    $(CC) $(CFLAGS) vfm_main.c
+	$(CC) $(CFLAGS) vfm_mini.c
+	$(CC) $(CFLAGS_DMA) vfm_resi.c
+
+    $(CC) $(CFLAGS) /Fovfm_opl3.obj nukedopl/opl3.c
+
+#    $(LINK) /Ln asm+opl3+vfm_mini+vfm_resi+vfm_main,V97TSR.EXE;
+    $(LINK) vfm_opt.obj vfm_opl3.obj vfm_mini.obj vfm_resi.obj vfm_isr.obj vfm_main.obj,v97tsr.exe,,,,,
+

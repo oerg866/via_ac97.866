@@ -1,3 +1,5 @@
+#ifndef _V97_REG_H_
+#define _V97_REG_H_
 #include "types.h"
 
 #pragma pack(1)
@@ -103,11 +105,14 @@ typedef union {
     struct {
         u8 intOnFlag            : 1;
         u8 intOnEOL             : 1;
-        u8 intSelect            : 2;
+        u8 intSelect            : 2;    /*  00 Interrupt at PCI Read of Last Line (default)
+                                            01 Interrupt at Last Sample Sent
+                                            10 Interrupt at Less Than One Line to Send
+                                            11 -reserved */
         u8 stereo               : 1;
         u8 is16Bit              : 1;
         u8 _reserved_           : 1;
-        u8 autoStartSgdAtEOL    : 1;
+        u8 autoStartSgdAtEOL    : 1;    /* Auto-Restart DMA when last block is played (EOL) */
     };
     u8 raw;
 } v97_SgdChannelType;
@@ -126,4 +131,15 @@ typedef struct {
     } countFlags;
 } v97_SgdTableEntry;
 
+/* OPL3 Emulation Registers */
+
+typedef union {
+    struct {
+        u8 fmNmiStatus  : 2;
+        u8 _reserved_   : 6;
+    };
+    u8 raw;
+} v97_FmNmiStatus;
+
 #pragma pack()
+#endif
