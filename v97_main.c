@@ -67,6 +67,9 @@ typedef struct {
 
     struct {    bool setup;
                 bool enable;    } surround;
+
+    struct {    bool setup;
+                u16  frequency; } rate;
 } v97_AppConfig;
 
 static v97_AppConfig v97_args;
@@ -402,6 +405,11 @@ static bool v97_doVolumeSetup(ac97_Interface *ac) {
     return true;
 }
 
+static bool v97_setupDacRate(ac97_Interface *ac, u16 rate) {
+    bool enable = (rate > 0);
+    return ac97_setVariableSampleRate(ac, enable, rate);
+}
+
 /* Adds default mixer settings to the configuration */
 static void v97_addDefaultVolumesToArgs(void) {
     v97_args.volumes[AC97_VOL_MASTER].setup = true;
@@ -484,6 +492,11 @@ static bool v97_doSetup(pci_Device dev, bool defaultSetup) {
     /* Set the volumes */
     if (!v97_doVolumeSetup(&ac)) {
         printf("ERROR: Failed to set volumes. Aborting.\n");
+        return false;
+    }
+
+    if (v97_args.rate.setup && !v97_setupDacRate(&ac, v97_args.rate.frequency)) {
+        printf("ERROR: Failed to set up DAC sample rate.\n");
         return false;
     }
 
@@ -584,6 +597,14 @@ static const args_arg v97_supportedArgs[] = {
     { "v_aux",      "volume",   "Mixer: Set Aux Input Volume (0-31)",   ARG_U16, &v97_args.volumes[7].setup, &v97_args.volumes[7].volume, NULL },
     { "micboost",   "0/1",      "Disable/Enable Mic Boost",             ARG_BOOL, &v97_args.micBoost.setup, &v97_args.micBoost.enable, NULL },
     { "3d",         "0/1",      "Disable/Enable 3D Surround",           ARG_BOOL, &v97_args.surround.setup, &v97_args.surround.enable, NULL },
+
+    /* Some more technical codec settings */
+    { "rate",       "hz",       "Force AC97 Codec Sample Rate",         ARG_U16, &v97_args.rate.setup,       &v97_args.rate.frequency, NULL },
+                    ARGS_EXPLAIN("hz: Sample rate in Hertz"),
+                    ARGS_EXPLAIN("A value of 0 forcefully disables"),
+                    ARGS_EXPLAIN("the Variable Sample Rate in the"),
+                    ARGS_EXPLAIN("codec."),
+
 };
 
 int main(int argc, char *argv[]) {
