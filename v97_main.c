@@ -24,6 +24,8 @@
 #include "ac97.h"
 #include "args.h"
 
+#include "v97_reg.h"
+
 #define __LIB866D_TAG__ "V97_MAIN"
 #include "debug.h"
 
