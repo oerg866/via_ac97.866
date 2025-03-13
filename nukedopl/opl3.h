@@ -183,10 +183,13 @@ void OPL3_Reset(opl3_chip *chip, uint32_t samplerate);
 void OPL3_WriteReg(opl3_chip *chip, uint16_t reg, uint8_t v);
 void OPL3_WriteRegBuffered(opl3_chip *chip, uint16_t reg, uint8_t v);
 void OPL3_GenerateStream(opl3_chip *chip, int16_t *sndptr, uint32_t numsamples);
+void OPL3_Generate2ChResampled(opl3_chip *chip, int16_t *buf2);
 
+#if 0
 void OPL3_Generate4Ch(opl3_chip *chip, int16_t *buf4);
 void OPL3_Generate4ChResampled(opl3_chip *chip, int16_t *buf4);
 void OPL3_Generate4ChStream(opl3_chip *chip, int16_t *sndptr1, int16_t *sndptr2, uint32_t numsamples);
+#endif
 
 #ifdef __cplusplus
 }

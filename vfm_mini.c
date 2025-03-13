@@ -12,14 +12,31 @@
 
 #define UNUSED_ARG(x) (void) (x)
 
+void sys_outPortB(u16 port, u8 outVal) {
+    outp(port, outVal);
+//    printf(">>>>>>>> OUTPORTB: %04x, %02x\n", port, outVal);
+}
+
+u8 sys_inPortB(u16 port) {
+    u8 retVal = inp(port);
+//    printf("<<<<<<<< INPORTB:  %04x, %02x\n", port, retVal);
+    return retVal;
+}
+
 void sys_outPortL(u16 port, u32 outVal) {
     u32 _far *outValFarPtr = (u32 _far *) &outVal;
     UNUSED_ARG(outValFarPtr); /* asm macro below doesn't detect it as used */
     _asm {
+        push dx
+        PUSH32(_EAX)
         mov dx, port
         MOV_REG_DWORDPTR(_EAX, outValFarPtr)
         OUT_DX_EAX
+        POP32(_EAX)
+        pop dx
     }
+//    if (port >= 0x1000)
+//        printf(">>>>>>>> OUTPORTL: %04x, %08lx\n", port, outVal);
 }
 
 u32 sys_inPortL(u16 port) {
@@ -27,22 +44,25 @@ u32 sys_inPortL(u16 port) {
     u32 _far* retValFarPtr = &retVal;
     UNUSED_ARG(retValFarPtr); /* asm macro below doesn't detect it as used */
     _asm {
+        push dx
+        PUSH32(_EAX)
         mov dx, port
         IN_EAX_DX
         MOV_DWORDPTR_REG(retValFarPtr, _EAX)
+        POP32(_EAX)
+        pop dx
     }
+//    if (port >= 0x1000)
+//        printf("<<<<<<<< INPORTL:  %04x, %08lx\n", port, retVal);
     return retVal;
 }
 
-void sys_ioDelay(u32 loops) {
+void sys_ioDelay(u16 loops) {
     while (loops--) {
         _asm {
             push ax
-            push dx
             mov al, 1
-            mov dx, 0xED
-            out dx, al
-            pop dx
+            out 0xED, al
             pop ax
         }
     }
@@ -85,7 +105,7 @@ u16 pci_read16(pci_Device device, u32 offset)
 u8 pci_read8(pci_Device device, u32 offset)
 /* Reads BYTE from PCI config space. */
 {
-    return (u8) (pci_read32(device, offset) >> 8 * (offset % 4));
+    return (u8) (pci_read32(device, offset) >> (8 * (offset % 4)));
 }
 
 void pci_write32(pci_Device device, u32 offset, u32 value)

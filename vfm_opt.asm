@@ -182,4 +182,28 @@ noAdj:
     ret
 __printHexDigit ENDP
 
+
+OPL3_ClipSampleFast PROC C sample:DWORD
+    push ebx
+    mov ebx, sample    
+    cmp ebx, 32767
+    jle _belowPos
+    mov ax, 32767
+    pop ebx
+    ret
+
+_belowPos:
+    cmp ebx, -32768
+    jge _aboveNeg
+    mov ax, -32768
+    pop ebx
+    ret
+
+_aboveNeg:    
+    mov ax, bx
+    pop ebx
+    ret
+OPL3_ClipSampleFast ENDP
     END
+
+

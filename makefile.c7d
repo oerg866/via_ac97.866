@@ -2,7 +2,7 @@ CC  = cl
 ASM = ml
 LINK = link
 
-CFLAGS = /c /f- /W2 /G2 /FPi87 /Gx /Os /Gs /DDOS16 /ILIB866D /I. /nologo
+CFLAGS = /c /f- /W2 /G2 /FPi87 /Gx /Os /Gs /DDOS16 /ILIB866D /I.
 AFLAGS = /c /Cx /W2 /WX /nologo
 
 !IF "$(DMA_SAMPLES_PER_BUFFER)"==""
@@ -43,10 +43,10 @@ V97TSR.EXE : clean
     $(ASM) $(AFLAGS_DMA) vfm_isr.asm
     $(CC) $(CFLAGS) vfm_main.c
 	$(CC) $(CFLAGS) vfm_mini.c
-	$(CC) $(CFLAGS_DMA) vfm_resi.c
+	$(CC) $(CFLAGS_DMA) vfm_tsr.c
 
     $(CC) $(CFLAGS) /Fovfm_opl3.obj nukedopl/opl3.c
 
-#    $(LINK) /Ln asm+opl3+vfm_mini+vfm_resi+vfm_main,V97TSR.EXE;
-    $(LINK) vfm_opt.obj vfm_opl3.obj vfm_mini.obj vfm_resi.obj vfm_isr.obj vfm_main.obj,v97tsr.exe,,,,,
+#    $(LINK) /Ln asm+opl3+vfm_mini+vfm_tsr+vfm_main,V97TSR.EXE;
+    $(LINK)  vfm_opt.obj vfm_opl3.obj vfm_mini.obj vfm_tsr.obj vfm_isr.obj vfm_main.obj,v97tsr.exe,,,,,
 

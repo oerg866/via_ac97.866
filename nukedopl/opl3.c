@@ -1157,9 +1157,9 @@ static void OPL3_ChannelSet4Op(opl3_chip *chip, uint8_t data)
     }
 }
 
-/* TODO INLINE DEF */
+#ifndef DOS16
 static int16_t OPL3_ClipSample(int32_t sample)
-{
+{   
     if (sample > 32767L)
     {
         sample = 32767L;
@@ -1170,6 +1170,10 @@ static int16_t OPL3_ClipSample(int32_t sample)
     }
     return (int16_t)sample;
 }
+#else
+extern int16_t OPL3_ClipSampleFast(int32_t sample);
+#define OPL3_ClipSample OPL3_ClipSampleFast
+#endif
 
 static void OPL3_ProcessSlot(opl3_slot *slot)
 {
@@ -1399,7 +1403,7 @@ void OPL3_Generate(opl3_chip *chip, int16_t *buf)
 
 #endif
 
-void OPL3_Generate2ChResampled(opl3_chip *chip, int16_t *buf4)
+void OPL3_Generate2ChResampled(opl3_chip *chip, int16_t *buf2)
 {
     int32_t tmp1, tmp2;
     _DBG(0xf3);
@@ -1420,9 +1424,9 @@ void OPL3_Generate2ChResampled(opl3_chip *chip, int16_t *buf4)
 
     /* DOS 16-bit hack */
 #ifndef DOS16
-    buf4[0] = (int16_t)((chip->oldsamples[0] * (chip->rateratio - chip->samplecnt)
+    buf2[0] = (int16_t)((chip->oldsamples[0] * (chip->rateratio - chip->samplecnt)
                         + chip->samples[0] * chip->samplecnt) / chip->rateratio); 
-    buf4[1] = (int16_t)((chip->oldsamples[1] * (chip->rateratio - chip->samplecnt)
+    buf2[1] = (int16_t)((chip->oldsamples[1] * (chip->rateratio - chip->samplecnt)
                         + chip->samples[1] * chip->samplecnt) / chip->rateratio);
 /*
     buf4[2] = (int16_t)((chip->oldsamples[2] * (chip->rateratio - chip->samplecnt)
@@ -1434,14 +1438,14 @@ void OPL3_Generate2ChResampled(opl3_chip *chip, int16_t *buf4)
     __lmul(&tmp1, chip->oldsamples[0], chip->rateratio - chip->samplecnt);
     __lmul(&tmp2, chip->samples   [0], chip->samplecnt);
     __ldiv(&tmp1, tmp1 + tmp2, chip->rateratio);
-    buf4[0] = (int16_t) tmp1;
+    buf2[0] = (int16_t) tmp1;
 
     _DBG(0xf5);
 
     __lmul(&tmp1, chip->oldsamples[1], chip->rateratio - chip->samplecnt);
     __lmul(&tmp2, chip->samples   [1], chip->samplecnt);
     __ldiv(&tmp1, tmp1 + tmp2, chip->rateratio);
-    buf4[1] = (int16_t) tmp1;
+    buf2[1] = (int16_t) tmp1;
 
     _DBG(0xf6);
 #endif 

@@ -36,8 +36,8 @@ static void vfm_printStatus(bool cr) {
 */
 
 static void vfm_sbMixerWrite(u16 sbPort, u8 reg, u8 val) {
-    outp(sbPort+4, reg); sys_ioDelay(3);
-    outp(sbPort+5, val); sys_ioDelay(3);
+    sys_outPortB(sbPort+4, reg); sys_ioDelay(3);
+    sys_outPortB(sbPort+5, val); sys_ioDelay(3);
 }
 
 static bool vfm_sbMixerInit(u16 sbPort) {
@@ -47,12 +47,12 @@ static bool vfm_sbMixerInit(u16 sbPort) {
     i16 timeout = 1000;
 
     /* Reset SB DSP */
-    outp(resetPort, 1); sys_ioDelay(3);
-    outp(resetPort, 0); sys_ioDelay(3);
+    sys_outPortB(resetPort, 1); sys_ioDelay(3);
+    sys_outPortB(resetPort, 0); sys_ioDelay(3);
 
 
     while (timeout--) {
-        if(inp(readPort) == 0xAA) {
+        if(sys_inPortB(readPort) == 0xAA) {
             printf("SB Mixer Init OK\n");
             break;
         }
@@ -65,7 +65,7 @@ static bool vfm_sbMixerInit(u16 sbPort) {
     }
 
     /* Enable Speaker */
-    outp(dspIoPort, 0xD1);
+    sys_outPortB(dspIoPort, 0xD1);
 
     vfm_sbMixerWrite(sbPort, 0x22, 0xFF); /* Master Volume */
     vfm_sbMixerWrite(sbPort, 0x26, 0xFF); /* FM Volume */
@@ -75,14 +75,14 @@ static bool vfm_sbMixerInit(u16 sbPort) {
 
 static void oplWrite(u8 reg, u8 val) {
 //    printf("OPL Write: %02x %02x\n", reg, val);
-    outp(0x388, reg);
+    sys_outPortB(0x388, reg);
     sys_ioDelay(40);
-    outp(0x389, val);
+    sys_outPortB(0x389, val);
 //    sys_ioDelay(230);
 }
 
 static void oplWriteNoReg(u8 val) {
-    outp(0x389, val);
+    sys_outPortB(0x389, val);
 //    sys_ioDelay(230);
 }
 
@@ -125,9 +125,9 @@ static void vfm_testToneLoopTest() {
         while (!cancel && !vfm_tsrHasIntOccurred()) {
             /* Crickets */
             sys_ioDelay(1);
+            vfm_tsrPrintStatus(true);
             if (kbhit()) cancel = true;  
         }
-//        vfm_printStatus(true);
     }
 
     /* Clear keyon */
@@ -152,12 +152,12 @@ void vfm_fileLoopTest() {
         while (!cancel && !vfm_tsrHasIntOccurred()) {
             /* Crickets */
             sys_ioDelay(1);
-            if (kbhit()) cancel = true;  
+            if (kbhit()) cancel = true;
         }
 
         if (cancel) break;
 
-        dmaBuffer = vfm_tsrGetDmaBufferWritePtr();
+        dmaBuffer = vfm_tsrGetDmaBufferWritePtr(-1);
         
         /* Read next chunk from file */
 
@@ -173,7 +173,7 @@ void vfm_fileLoopTest() {
             memset(dmaBuffer + bytesRead, 0, bufferSize - bytesRead);
         }
 
-//        vfm_printStatus(true);
+        vfm_tsrPrintStatus(true);
     }
 
     _dos_close(fileHandle);
@@ -203,6 +203,17 @@ static bool vfm_isTsrLoaded() {
     return false;
 }
 
+static void vfm_dumpDmaBuffers(const char *filename) {
+    FILE *f = fopen(filename, "wb");
+    u16 i;
+
+    for (i = 0; i < vfm_tsrGetDmaBufferCount(); i++) {
+        fwrite(vfm_tsrGetDmaBufferWritePtr(i), vfm_tsrGetDmaBufferSize(),  1, f);
+    }
+
+    fclose(f);
+}
+
 static void printUsage() {
     printf("r   Load TSR\n");
     printf("<for debugging only:>\n");
@@ -226,14 +237,20 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    /* check if program should be loaded as TSR */
+    /* check if program should send a test tone to OPL (not necessarily our device) */
     if (argc > 1 && *argv[1] == 'p') {
         vfm_fmGenerateTestTone();
         printf("OPL test tone sent\n");
         return 0;
     }
+    
+    /* check if program should do a OPL3 generation test & benchmark */
+    if (argc > 1 && *argv[1] == 'o') {
+        vfm_tsrOplTest();
+        return 0;
+    }
 
-    /* Abort if the TSR is loaded */
+    /* Abort if the TSR is already loaded */
     if (tsrIsLoaded) {
         printf("The TSR is already loaded. Aborting...\n");
         return -1;
@@ -251,11 +268,11 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    /* Set up Sound Blaster mixer - TODO: Get io port programatically */
+    vfm_sbMixerInit(0x220);
     /* Set up the TSR's specific stuff - Interrupt vectors, DMA tables, buffers */
     vfm_tsrInitialize(dev);
 
-    /* Set up Sound Blaster mixer */
-    vfm_sbMixerInit(0x220);
     
     /* check if program should be loaded as TSR */
     if (argc > 1 && *argv[1] == 'r') {
@@ -265,6 +282,7 @@ int main(int argc, char *argv[]) {
     /* check if program should do a basic fm generation test */
     if (argc > 1 && *argv[1] == 'g') {
         vfm_testToneLoopTest();
+        vfm_dumpDmaBuffers("dump.bin");
     }
     
     /* check if program should do a file playback test */
