@@ -1,2 +1,8 @@
 *.obj
 *.exe
+*.snd
+*.map
+*.err
+*.id*
+*.til
+*.nam
