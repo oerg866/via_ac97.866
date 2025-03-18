@@ -13,13 +13,23 @@
 #define UNUSED_ARG(x) (void) (x)
 
 void sys_outPortB(u16 port, u8 outVal) {
-    outp(port, outVal);
+    _asm {
+        mov dx, port
+        mov al, outVal
+        out dx, al
+    }
 //    printf(">>>>>>>> OUTPORTB: %04x, %02x\n", port, outVal);
 }
 
 u8 sys_inPortB(u16 port) {
-    u8 retVal = inp(port);
-//    printf("<<<<<<<< INPORTB:  %04x, %02x\n", port, retVal);
+    u8 retVal;
+    _asm {
+        mov dx, port
+        in al, dx
+        mov retVal, al
+    }
+
+    //    printf("<<<<<<<< INPORTB:  %04x, %02x\n", port, retVal);
     return retVal;
 }
 
@@ -72,7 +82,7 @@ bool pci_test(void) {
     u32 test = 0;
 
     /* Concept stolen from linux kernel :P */
-    outp(0xCFB, 0x01);
+    sys_outPortB(0xCFB, 0x01);
     test = sys_inPortL(0xCF8);
     sys_outPortL(0xCF8, 0x80000000UL);
     test = sys_inPortL(0xCF8);
@@ -180,3 +190,29 @@ void sys_serialSend(const u8 *byte, u16 length) {
     }
 }
 #endif
+
+
+static char tmpBuf[80];
+
+void vfm_puts(const char *str) {
+    u16 i = 0;
+
+    while (1) {
+        if (i >= sizeof(tmpBuf) - 2) break;
+        if (*str == 0) break;
+        if (*str == '\n') {
+            tmpBuf[i] = '\r';
+            i++;
+        }
+        tmpBuf[i] = *str;
+        str++;
+        i++;
+    }
+    tmpBuf[i] = '$';
+
+    _asm {
+        mov dx, offset tmpBuf
+		mov ah, 0x09
+		int 0x21
+    }
+}

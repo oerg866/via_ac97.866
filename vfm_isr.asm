@@ -12,8 +12,8 @@
 vfm_tsrProcessRegistersAndGenerate  PROTO NEAR C, bankedIndex:WORD, data:WORD
 vfm_processOPLWriteFromNmi          PROTO NEAR C
 
-; DMA_BUFFER_COUNT            EQU 2
-; DMA_SAMPLES_PER_BUFFER      EQU 192
+; NUM_BUFS            EQU 2
+; SAMPS_PER_BUF      EQU 192
 STEREO                      EQU 2
 
 DMATABLEENTRY STRUC
@@ -59,18 +59,21 @@ g_DMA_BufferIndex           dw 0
 
 ; Our custom stacks
 ; Stack for PCI DMA Interupt 
-g_DMA_Stack                 db 768  dup (0)
+g_DMA_Stack                 db 512  dup (0)
 g_DMA_StackTop              = $
 
 ; Stack for NMI Interrupt
-g_NMI_Stack                 db 256  dup (0)
+g_NMI_Stack                 db 512  dup (0)
 g_NMI_StackTop              = $
 
+
+IFDEF NUKED 
 ; OPL Register Write Queue
 
-OPL_REG_QUEUE_SIZE          EQU (DMA_SAMPLES_PER_BUFFER-1)
+OPL_REG_QUEUE_SIZE          EQU (SAMPS_PER_BUF-1)
 g_OPL_RegQueue              OPLQUEUEENTRY OPL_REG_QUEUE_SIZE dup (<0, 0>)
 g_OPL_RegCount               dw 0
+ENDIF
 
 ; FM SGD Register definitions
 SGD_CHANNEL_STATUS_ACTIVE   EQU 080h
@@ -89,8 +92,13 @@ VFM_IO_FM_SGD_STATUS        EQU 20h
 
     .code
 
+IFDEF DBOPL
+Chip_Generate                       PROTO NEAR C, opl3_chip:PTR WORD, buf:PTR WORD, count:DWORD
+Chip_WriteReg                       PROTO NEAR C, opl3_chip:PTR WORD, reg:WORD, data:BYTE
+ELSE
 OPL3_Generate2ChResampled           PROTO NEAR C, opl3_chip:PTR WORD, buf:PTR WORD
 OPL3_WriteReg                       PROTO NEAR C, opl3_chip:PTR WORD, reg:WORD, data:BYTE
+ENDIF
 
 ; Register backups for setting up custom stacks
 ; These have to be in code segment so we can access it
@@ -164,7 +172,7 @@ vfm_dmaInterruptHandler PROC FAR
     jns _noNegBufferAdj
     
     ; Adjust
-    mov al, DMA_BUFFER_COUNT - 1
+    mov al, NUM_BUFS - 1
    
 _noNegBufferAdj:
     ; Update index with final value
@@ -181,6 +189,14 @@ _noNegBufferAdj:
     add di, ax                          ; Calculate pointer to our current index's buffer pointer (sorry for the confusion)
     add di, ax
     mov di, [di]                        ; DI = Write Pointer to DMA buffer
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; NUKED-OPL GENERATION - Process register queue, generate one sample per register, then generate the rest of the stream
+;
+IFDEF NUKED
+
     mov cx, word ptr [g_OPL_RegCount]   ; CX = OPL Register writes to process
 
     ; Do we have register writes to process? If not, skip this step
@@ -193,32 +209,35 @@ _processRegisters:
 
     ; Write register to emualted opl chip
     push cx
-    
+
     push word ptr [si+2]       ; data
     push word ptr [si+0]       ; bankedIndex
-    push offset g_vfm_oplChip       ; opl3_chip
+    push offset g_vfm_oplChip  ; opl3_chip
     call OPL3_WriteReg
     add sp, 6
-
-    ; Generate one sample for this register write
 
     push di
     push offset g_vfm_oplChip
     call OPL3_Generate2ChResampled
     add sp, 4
 
-    pop cx
-
     add di, 2*2 ; Advance stream pointer
     add si, 3   ; next register
+    pop cx
     dec cx
     jnz _processRegisters
 
 _processRegistersSkip:
-    mov cx, DMA_SAMPLES_PER_BUFFER      ; DX = Samples to write after processing registers
+    mov cx, SAMPS_PER_BUF      ; DX = Samples to write after processing registers
     sub cx, word ptr [g_OPL_RegCount]   ; Subtract register count
-    mov word ptr [g_OPL_RegCount], 0    ; Reset register count for next iteration
+    
+    jns _noError
+; Etoooo bleh???
+    int 3
 
+_noError:
+
+    mov word ptr [g_OPL_RegCount], 0    ; Reset register count for next iteration
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ; DONE WITH REGISTER PROCESSING, now just generate the rest of the stream.
@@ -247,6 +266,23 @@ _generateStream:
 ;    int 3
 
 _generateStreamSkip:
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; Not NUKED but DBOPL - just generate everything in 1 go
+;
+ELSE 
+
+    ; No idea how to push a DWORD in MASM 6.11 .... push dword doesn't work nor does push large. wtf?
+    db 066h, 068h
+    dd SAMPS_PER_BUF
+    push di
+    push offset g_vfm_oplChip
+    call Chip_Generate
+    add sp, 8
+
+ENDIF
+
     ; Ack the interrupt to clear it, writing FLAG and EOL to clear them
     mov al, SGD_CHANNEL_STATUS_FLAG OR SGD_CHANNEL_STATUS_EOL
     mov dx, word ptr [g_vfm_ioBaseDma]
@@ -292,7 +328,7 @@ vfm_dmaInterruptHandler ENDP
 ; NMI / SMI Handler
 ;
 vfm_nmiHandler PROC FAR
-;    int 3
+    int 3
 
     SWAP_STACK      g_NMI_Backup, g_NMI_StackTop
 
@@ -332,7 +368,12 @@ vfm_nmiHandler PROC FAR
     dec dx
     in al, dx
 
-    ; !! Add register to write queue !!
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; NUKED-OPL - We have a queue which gets processed in the DMA interrupt, so we add the register there
+;
+
+IFDEF NUKED
 
     ; Is the write queue full?
     cmp word ptr [g_OPL_RegCount], (OPL_REG_QUEUE_SIZE-2)
@@ -359,6 +400,19 @@ _addRegWriteToQueue:
     inc word ptr [g_OPL_RegCount]
 
     ; All done and successful!
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; DBOPL - We can just write registers whenever... Speeeeeeeeeeedddddddddddd!!!
+;
+ELSE
+    sub ah, ah                  ; upper byte is dirty from before
+    push ax                     ; data
+    push bx                     ; bankedIndex
+    push offset g_vfm_oplChip   ; opl3_chip
+    call Chip_WriteReg
+    add sp, 6
+ENDIF
 
     mov byte ptr [g_NMI_Success], 1
 

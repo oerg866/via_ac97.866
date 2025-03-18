@@ -13,7 +13,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <dos.h>
-#include <stdint.h>
 #include <string.h>
 #include <sys/stat.h>
 
@@ -331,10 +330,10 @@ static void v97_printChipStatus (pci_Device dev, ac97_Interface *ac) {
     u16                 midiPort;
 
     /* Parse port settings from registers */
-    v97_regValueLookup(c_v97_sbPorts, sizeof(c_v97_sbPorts), pnpCtrl.sbPort, &sbPort);
-    v97_regValueLookup(c_v97_sbIrqs, sizeof(c_v97_sbIrqs), pnpCtrl.sbIrq, &sbIrq);
-    v97_regValueLookup(c_v97_sbDmas, sizeof(c_v97_sbDmas), pnpCtrl.sbDma, &sbDma);
-    v97_regValueLookup(c_v97_midiPorts, sizeof(c_v97_midiPorts), pnpCtrl.midiPort, &midiPort);
+    v97_regValueLookup(c_v97_sbPorts,   sizeof(c_v97_sbPorts),      pnpCtrl.sbPort,     &sbPort);
+    v97_regValueLookup(c_v97_sbIrqs,    sizeof(c_v97_sbIrqs),       pnpCtrl.sbIrq,      &sbIrq);
+    v97_regValueLookup(c_v97_sbDmas,    sizeof(c_v97_sbDmas),       pnpCtrl.sbDma,      &sbDma);
+    v97_regValueLookup(c_v97_midiPorts, sizeof(c_v97_midiPorts),    pnpCtrl.midiPort,   &midiPort);
 
     printf("AC'97 Codec Interface Status:\n");
     printf("    Codec Interface:            %s\n", acLinkCtrl.interfaceEnable ? "Enabled" : "Disabled");
@@ -437,6 +436,8 @@ static bool v97_doSetup(pci_Device dev, bool defaultSetup) {
     }
 
     ioBase = (u16) devInfo.bars[0].address;
+    
+    printf("IO Base: %x (%08lx)\n", ioBase, pci_read32(dev, 0x10));
 
     /* Set up AC-Link so we can power up and control the codec */
     if (!v97_enableACLink(dev)) {

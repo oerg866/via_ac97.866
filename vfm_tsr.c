@@ -14,16 +14,11 @@
 #include "sys.h"
 #include "pci.h"
 
+#include <stdlib.h>
 #include <stddef.h>
 #include <dos.h>
-
-#ifdef LOGGING
-#include <io.h>
-#include <conio.h>
-#include <stdio.h>
-#endif
-
-#include "nukedopl/opl3.h"
+#include <malloc.h>
+#include <string.h>
 
 #define UNUSED_ARG(_arg_) (void) _arg_
 
@@ -32,45 +27,60 @@ typedef void (_interrupt _far *IRQHANDLER)(void);
 #define FM_PCM_SAMPLE_RATE 24000
 #define STEREO 2
 #define DMA_ALIGN 8
-#define FM_PCM_BUFFER_ALLOC_SIZE (sizeof(i16) * DMA_SAMPLES_PER_BUFFER * STEREO)
-#define VFM_MEM_POOL_SIZE (sizeof(v97_SgdTableEntry) * DMA_BUFFER_COUNT + FM_PCM_BUFFER_ALLOC_SIZE * DMA_BUFFER_COUNT + DMA_ALIGN)
+#define FM_PCM_BUFFER_ALLOC_SIZE (sizeof(i16) * SAMPS_PER_BUF * STEREO)
+#define VFM_MEM_POOL_SIZE (sizeof(v97_SgdTableEntry) * NUM_BUFS + FM_PCM_BUFFER_ALLOC_SIZE * NUM_BUFS + DMA_ALIGN)
 
 /*  Static memory pools for DMA table and FM DMA buffers
     The reason we do it this way is because traditional "code models" in DOS don't support arbitrary data alignments
     so we allocate a memory pool larger than what's needed and then programatically set the pointers */
 
-u8                  g_vfm_fmDmaMemPool[VFM_MEM_POOL_SIZE];  /* Memory poool for SGD Table + Buffers + Alignmnet reserve */
-v97_SgdTableEntry  *g_vfm_fmDmaTable = NULL;                /* Pointer to SGD Table */
-u32                 g_vfm_fmDmaTablePhysAddress = 0;        /* Physical 32-Bit address of SGD table */
-i16                *g_vfm_fmDmaBuffers[DMA_BUFFER_COUNT];   /* Pointer list for all DMA buffers */
+u8                                  g_vfm_fmDmaMemPool[VFM_MEM_POOL_SIZE];  /* Memory poool for SGD Table + Buffers + Alignmnet reserve */
+v97_SgdTableEntry                  *g_vfm_fmDmaTable = NULL;                /* Pointer to SGD Table */
+u32                                 g_vfm_fmDmaTablePhysAddress = 0;        /* Physical 32-Bit address of SGD table */
+i16                                *g_vfm_fmDmaBuffers[NUM_BUFS];           /* Pointer list for all DMA buffers */
 
-pci_Device          g_vfm_pciDevice;                        /* PCI audio device structure (bus, slot, function) */
-u16                 g_vfm_pciIrq    = 0;                    /* Interrupt of the PCI Audio Device */
-bool                g_vfm_slaveIrq;                         /* Device is on master/slave PIC (true if IRQ > 7) */
-u16                 g_vfm_ioBaseDma = 0;                    /* Base I/O port for Audio Codec / SGD Interface */
-u16                 g_vfm_ioBaseNmi = 0;                    /* Base I/O port for FM NMI Status / Data */
-
-opl3_chip           g_vfm_oplChip;                          /* OPL Emulator structure */
+pci_Device                          g_vfm_pciDevice;                        /* PCI audio device structure (bus, slot, function) */
+u16                                 g_vfm_pciIrq    = 0;                    /* Interrupt of the PCI Audio Device */
+bool                                g_vfm_slaveIrq;                         /* Device is on master/slave PIC (true if IRQ > 7) */
+u16                                 g_vfm_ioBaseDma = 0;                    /* Base I/O port for Audio Codec / SGD Interface */
+u16                                 g_vfm_ioBaseNmi = 0;                    /* Base I/O port for FM NMI Status / Data */
 
 /* Definitions from vfm_isr.asm */
-extern u8           g_DMA_IRQOccured;                       /* Flag by ISR when device IRQ has occured *and* was handled by us */
-extern u8           g_DMA_BufferIndex;                      /* Buffer Index currently used by DMA engine for writing */
+extern u8                           g_DMA_IRQOccured;                       /* Flag by ISR when device IRQ has occured *and* was handled by us */
+extern u8                           g_DMA_BufferIndex;                      /* Buffer Index currently used by DMA engine for writing */
 
 /* These are far objects as they reside in cs, not ds! */
-extern IRQHANDLER _far  g_vfm_oldPciIsr;                        /* Previous Interrupt Handler for device IRQ */
-extern IRQHANDLER _far  g_vfm_oldNmiIsr;                        /* Previous Interrupt Handler for NMI */
+extern IRQHANDLER _far              g_vfm_oldPciIsr;                        /* Previous Interrupt Handler for device IRQ */
+extern IRQHANDLER _far              g_vfm_oldNmiIsr;                        /* Previous Interrupt Handler for NMI */
 
 
-extern void _far _interrupt vfm_dmaInterruptHandler(void);  /* Our ISR for device IRQ */
-extern void _far _interrupt vfm_nmiHandler(void);           /* Our ISR for NMI */
-extern void         vfm_nmiHandlerEnd(void);                /* Dummy function for a pointer to end of the NMI */
+extern void _far _interrupt         vfm_dmaInterruptHandler(void);          /* Our ISR for device IRQ */
+extern void _far _interrupt         vfm_nmiHandler(void);                   /* Our ISR for NMI */
+extern void _far                    vfm_nmiHandlerEnd(void);                /* Dummy function for a pointer to end of the NMI */
 
+#ifndef DBOPL
+#include "nukedopl/opl3.h"
+opl3_chip                           g_vfm_oplChip;
+#define vfm_oplInit()               OPL3_Reset(&g_vfm_oplChip, FM_PCM_SAMPLE_RATE)
+#define vfm_oplGenOne(buf)          OPL3_Generate2ChResampled(&g_vfm_oplChip, buf)
+#define vfm_oplGen(buf, samps)      OPL3_GenerateStream(&g_vfm_oplChip, buf, samps)
+#define vfm_oplReg(reg, val)        OPL3_WriteReg(&g_vfm_oplChip, reg, val)
+#else
+#include "dbopl/dbopl.h"
+Chip                                g_vfm_oplChip;
+#define vfm_oplInit()               Chip_Reset(&g_vfm_oplChip, true, FM_PCM_SAMPLE_RATE)
+#define vfm_oplGenOne(buf)          Chip_Generate(&g_vfm_oplChip, buf, 1UL)
+#define vfm_oplGen(buf, samps)      Chip_Generate(&g_vfm_oplChip, buf, (uint32_t) (samps))
+#define vfm_oplReg(reg, val)        Chip_WriteReg(&g_vfm_oplChip, reg, val)
+#endif
+
+/* Get physical address for a FAR PTR - kinda hacky */
 static u32 vfm_tsrGetPhysAddr(void _far *ptr) {
     u32 segment = (u32) FP_SEG(ptr);
     u32 offset = (u32) FP_OFF(ptr);
     u32 ret = (segment << 4) + offset;
 
-    printf("vfm_tsrGetPhysAddr: %lp (%04lx:%04lx) -> %08lx\n",
+    DBG_PRINT("vfm_tsrGetPhysAddr: %lp (%04lx:%04lx) -> %08lx\n",
         (void _far*) ptr,
         segment, offset,
         ret);
@@ -78,6 +88,63 @@ static u32 vfm_tsrGetPhysAddr(void _far *ptr) {
     return ret;
 }
 
+/* Get Legacy Sound Blaster Port from PCI registers */
+static u16 vfm_getSoundBlasterPort(pci_Device dev) {
+    u8 sbEnabledBit = 0x01 & pci_read8(g_vfm_pciDevice, V97_PCI_REG_FUNC_ENABLE);
+    u8 sbPortBits   = 0x03 & pci_read8(g_vfm_pciDevice, V97_PCI_REG_PNP_CTRL);
+
+    if (!sbEnabledBit) return 0;
+
+    return 0x220 + (sbPortBits * 0x20);
+}
+
+/* Write to Sound Blaster Mixer */
+static void vfm_tsrSbMixerWrite(u16 sbPort, u8 reg, u8 val) {
+    sys_outPortB(sbPort+4, reg); sys_ioDelay(3);
+    sys_outPortB(sbPort+5, val); sys_ioDelay(3);
+}
+
+/* Initialize Sound Blaster Mixer to unmute FM audio */
+static bool vfm_tsrSbMixerInit(pci_Device dev) {
+    u16 sbPort = vfm_getSoundBlasterPort(dev);
+    u16 resetPort = sbPort + 6;
+    u16 dspIoPort = sbPort + 0x0C;
+    u16 readPort  = sbPort + 0x0A;
+    i16 timeout = 1000;
+
+    DBG_PRINT("SB Port: %03x\n", sbPort);
+
+    /* If port fetching failed, get out */
+    if (sbPort == 0) {
+        return false;
+    }
+
+    /* Reset SB DSP */
+    sys_outPortB(resetPort, 1); sys_ioDelay(3);
+    sys_outPortB(resetPort, 0); sys_ioDelay(3);
+
+    while (timeout--) {
+        if(sys_inPortB(readPort) == 0xAA)
+            break;
+
+        sys_ioDelay(1);
+    }
+    
+    if (timeout == 0) {
+        vfm_puts("ERROR: SB Not responding!\n");
+        return false;
+    }
+
+    /* Enable Speaker */
+    sys_outPortB(dspIoPort, 0xD1);
+
+    vfm_tsrSbMixerWrite(sbPort, 0x22, 0xFF); /* Master Volume */
+    vfm_tsrSbMixerWrite(sbPort, 0x26, 0xFF); /* FM Volume */
+    vfm_tsrSbMixerWrite(sbPort, 0x28, 0xFF); /* CD Audio Volume */
+    vfm_tsrSbMixerWrite(sbPort, 0x2E, 0xFF); /* Line In Volume */
+
+    return true;
+}
 
 /* START FM SGD DMA playback stream */
 static void vfm_tsrStartDma() {
@@ -87,7 +154,7 @@ static void vfm_tsrStartDma() {
     /* Tell audio device the pointer table address */
     sys_outPortL(g_vfm_ioBaseDma + V97_FM_SGD_TABLE_PTR, g_vfm_fmDmaTablePhysAddress);
     sys_ioDelay(1000);
-    printf("%04x: %08lx (expect %08lx) \n", g_vfm_ioBaseDma, sys_inPortL(g_vfm_ioBaseDma + V97_FM_SGD_TABLE_PTR), g_vfm_fmDmaTablePhysAddress);
+    DBG_PRINT("%04x: %08lx (expect %08lx) \n", g_vfm_ioBaseDma, sys_inPortL(g_vfm_ioBaseDma + V97_FM_SGD_TABLE_PTR), g_vfm_fmDmaTablePhysAddress);
 
     sgdType.raw = 0;
     sgdType.intOnFlag = 1;          /* PCI Interrupt on FLAG */
@@ -104,7 +171,6 @@ static void vfm_tsrStartDma() {
 
     sys_ioDelay(1000);
 
-    printf("[FM Audio Stream Started]\n");
     vfm_tsrPrintStatus(false);
 }
 
@@ -121,8 +187,6 @@ static void vfm_tsrStopDma() {
     sys_outPortB(g_vfm_ioBaseDma + V97_FM_SGD_CTRL, sgdCtrl.raw);
 
     sys_ioDelay(1000);
-    
-    printf("[FM Audio Stream Stopped]\n");
 }
 
 /* Sets up device interrupt vector & mask as well as NMI vector */
@@ -171,11 +235,11 @@ static void vfm_tsrSetupInterrupts() {
     mask  = sys_inPortB(imrPort);
     mask &= ~(1 << irq);
     sys_outPortB(imrPort, mask);    
-
-    printf("%lp\n", _dos_getvect(vector));
     
-    printf("[DMA IRQ %2u ] IMR %02x, Vector 0x%02x, ISR @ %lp, Chain @ %lp\n", g_vfm_pciIrq, mask, vector, vfm_dmaInterruptHandler, g_vfm_oldPciIsr);
-    printf("[NMI Handler]         Vector 0x02, ISR @ %lp, Chain @ %lp\n", vfm_nmiHandler, g_vfm_oldNmiIsr);
+    DBG_PRINT("[DMA IRQ %2u ] IMR %02x, Vector 0x%02x, ISR @ %lp, Chain @ %lp\n", g_vfm_pciIrq, mask, vector, vfm_dmaInterruptHandler, g_vfm_oldPciIsr);
+    DBG_PRINT("[NMI Handler]         Vector 0x02, ISR @ %lp, Chain @ %lp\n", vfm_nmiHandler, g_vfm_oldNmiIsr);
+    DBG_PRINT("                      Vector from MSDOS: %lp\n", _dos_getvect(0x02));
+    DBG_PRINT("                      g_vfm_oldPciIsr: %lp\n",&g_vfm_oldNmiIsr);
 }
 
 /* Restores device interrupt vector & mask as well as NMI vector */
@@ -265,13 +329,13 @@ static void vfm_tsrSetupMemoryAndDma() {
     g_vfm_fmDmaTable            = (v97_SgdTableEntry *) alignedPtr;
     g_vfm_fmDmaTablePhysAddress = physAddr;
 
-    printf("[DMA Table    ] Base: %lp, Physical 0x%08lx\n", (u8 far*) alignedPtr, physAddr);
+    DBG_PRINT("[DMA Table    ] Base: %lp, Physical 0x%08lx\n", (u8 far*) alignedPtr, physAddr);
 
     /* Set up DMA table and buffer pointers, starting at the *end* of the DMA table */
-    alignedPtr  +=       (sizeof(v97_SgdTableEntry) * DMA_BUFFER_COUNT);
-    physAddr    += (u32) (sizeof(v97_SgdTableEntry) * DMA_BUFFER_COUNT);
+    alignedPtr  +=       (sizeof(v97_SgdTableEntry) * NUM_BUFS);
+    physAddr    += (u32) (sizeof(v97_SgdTableEntry) * NUM_BUFS);
 
-    for (i = 0; i < DMA_BUFFER_COUNT; i++) {
+    for (i = 0; i < NUM_BUFS; i++) {
         /* In our local pointer table */
         g_vfm_fmDmaBuffers[i] = (i16*) alignedPtr;
         
@@ -281,7 +345,7 @@ static void vfm_tsrSetupMemoryAndDma() {
         g_vfm_fmDmaTable[i].countFlags.length = (u32) FM_PCM_BUFFER_ALLOC_SIZE;
         
         /* If this is the final buffer, mark it as EOL, else FLAG */
-        if (DMA_BUFFER_COUNT == (i + 1)) {
+        if (NUM_BUFS == (i + 1)) {
             g_vfm_fmDmaTable[i].countFlags.flag = 0;
             g_vfm_fmDmaTable[i].countFlags.eol  = 1;
         } else {
@@ -289,7 +353,7 @@ static void vfm_tsrSetupMemoryAndDma() {
             g_vfm_fmDmaTable[i].countFlags.eol  = 0;
         }
 
-        printf("[DMA Buffer %2u] Base: %lp, Phys 0x%08lx, Length %lu, EOL %lu, FLAG %lu\n",
+        DBG_PRINT("[DMA Buffer %2u] Base: %lp, Phys 0x%08lx, Length %lu, EOL %lu, FLAG %lu\n",
             i, 
             (void _far*) g_vfm_fmDmaBuffers[i],
             g_vfm_fmDmaTable[i].baseAddress,
@@ -305,23 +369,27 @@ static void vfm_tsrSetupMemoryAndDma() {
 //    vfm_tsrPrintStatus(true);
 }
 
-void vfm_tsrInitialize(pci_Device dev) {
-    vfm_tsrSetupGlobals(dev);
+bool vfm_tsrInitialize(pci_Device dev) {
+    vfm_tsrSetupGlobals(dev);   vfm_puts("\xFE");
     
-    printf("[TSR Init     ] I/O Port (DMA): 0x%04x, I/O Port (NMI): 0x%04x\n", g_vfm_ioBaseDma, g_vfm_ioBaseNmi);
+    DBG_PRINT("[TSR Init     ] I/O Port (DMA): 0x%04x, I/O Port (NMI): 0x%04x\n", g_vfm_ioBaseDma, g_vfm_ioBaseNmi);
 
-    vfm_tsrStopDma();
-    vfm_tsrSetupMemoryAndDma();
+    if (!vfm_tsrSbMixerInit(dev)) {                 /* Setup SB mixer to unmute FM */
+        vfm_puts("ERROR: SB Audio not enabled - run VIA_AC97.EXE\n");
+        return false;
+    }
 
-//    _asm{int 3};
-    getch();
-    
-    OPL3_Reset(&g_vfm_oplChip, FM_PCM_SAMPLE_RATE); /* Init OPL3 Emulator */
-    vfm_tsrSetupInterrupts();                       /* Set up vectors and PIC for our interrupts */
-    vfm_tsrSetupPCIRegisters();                     /* Set up PCI registers for playback & DMA */ 
-    vfm_tsrStartDma();                              /* Start DMA */
+    vfm_puts("\xFE");
 
-    printf("[TSR Init Done]\n");
+    vfm_tsrStopDma();           vfm_puts("\xFE");   /* Stop any previous DMA (shouldn't happen but you never know) */
+    vfm_tsrSetupMemoryAndDma(); vfm_puts("\xFE");   /* Init DMA tables and buffers */    
+    vfm_oplInit();              vfm_puts("\xFE");   /* Init OPL3 Emulator */
+    vfm_tsrSetupInterrupts();   vfm_puts("\xFE");   /* Set up vectors and PIC for our interrupts */
+    vfm_tsrSetupPCIRegisters(); vfm_puts("\xFE");   /* Set up PCI registers for playback & DMA */ 
+    vfm_tsrStartDma();          vfm_puts("\xFE");   /* Start DMA */
+
+    vfm_puts("\n\nInit Complete\n");
+//    printf("TSR Size: %u\n", vfm_tsrGetTsrSize());
 }
 
 void vfm_tsrCleanup() {
@@ -336,7 +404,8 @@ void vfm_tsrPrintStatus(bool cr) {
     u16 currentStatus = (u16) sys_inPortB(g_vfm_ioBaseDma + V97_FM_SGD_STATUS);
     u16 ctrl = (u16) sys_inPortB(g_vfm_ioBaseDma + V97_FM_SGD_CTRL);
     u16 type = (u16) sys_inPortB(g_vfm_ioBaseDma + V97_FM_SGD_TYPE);
-    printf("ioBase: %x TablePtr: %08lx Status: %02x %02x %02x Pos: %08lx",
+
+    DBG_PRINT("ioBase: %x TablePtr: %08lx Status: %02x %02x %02x Pos: %08lx",
         g_vfm_ioBaseDma,
         currentTablePtr,
         currentStatus,
@@ -344,8 +413,10 @@ void vfm_tsrPrintStatus(bool cr) {
         type,
         currentPos);
 
-    printf(cr ? "\r" : "\n");
+    DBG_PRINT(cr ? "\r" : "\n");
 }
+
+#ifdef DBG_BENCH
 
 #include <stdio.h>
 #include <malloc.h>
@@ -355,18 +426,7 @@ typedef struct {
     u8 v;
 } DBGREG;
 #pragma pack()
-/*
-static u32 vfm_tsrGetMs() {  
-    struct dostime_t time; 
-    u32 ticks = 0;
-    _dos_gettime(&time);
-    ticks += time.hour    * 60UL * 60UL * 100UL * 10UL;
-    ticks += time.minute         * 60UL * 100UL * 10UL;
-    ticks += time.second                * 100UL * 10UL;
-    ticks += time.hsecond                       * 10UL;
-    return ticks;
-}
-*/
+
 static u32 vfm_tsrGetTicks() {
     u32 timer[2];
     u32 _far *_low = timer+0;
@@ -394,11 +454,13 @@ void vfm_tsrOplTest() {
     i16 *stream = malloc(512 * STEREO * sizeof(i16));
     i16 *streamOut = stream;
     u16 block = 0;
-    OPL3_Reset(&g_vfm_oplChip, FM_PCM_SAMPLE_RATE);
+    vfm_oplInit();
+
+    printf("OPL Init done\n");
 
     while (!feof(f) && !kbhit()) {
         i16 *streamOut = stream;
-        u16 toWrite = 512;
+        u32 toWrite = 512ul;
         u32 startTime = vfm_tsrGetTicks();
         u32 elapsed = 0;
 
@@ -406,18 +468,22 @@ void vfm_tsrOplTest() {
             fread(&reg, 3, 1, f);
             if (ferror(f) || ferror(out)) abort();
             if (reg.r == 0xffff && reg.v == 0xff) break;
-            OPL3_WriteReg(&g_vfm_oplChip, reg.r, reg.v);
-            OPL3_Generate2ChResampled(&g_vfm_oplChip, streamOut);
-            streamOut += STEREO;
-            toWrite--;
+            
+	        vfm_oplReg(reg.r, reg.v);
+//            vfm_oplGenOne(streamOut);
+//            streamOut += STEREO;
+//            toWrite--;
         }
 
-        while (toWrite) {
-            OPL3_Generate2ChResampled(&g_vfm_oplChip, streamOut);
-            streamOut += STEREO;
-            toWrite--;
-        }
+        vfm_oplGen(streamOut, toWrite);
 
+//        while (toWrite) {
+//            vfm_oplGen(streamOut, toWrite);
+//            streamOut += STEREO;
+//            toWrite--;
+//        }
+
+//        vfm_oplGen(streamOut, toWrite);
         elapsed = vfm_tsrGetTicks() - startTime;
 
         printf("block %5u %5lu ticks \r", block++, elapsed);
@@ -428,6 +494,8 @@ void vfm_tsrOplTest() {
     fclose(f);
     fclose(out);
 }
+
+#endif
 
 void vfm_terminateAndStayResident() {
     /* 
@@ -466,13 +534,13 @@ u16 vfm_tsrGetDmaBufferSize() {
 }
 
 u16 vfm_tsrGetDmaBufferCount() {
-    return DMA_BUFFER_COUNT;
+    return NUM_BUFS;
 }
 
 u16 vfm_tsrGetNmiHandlerSize() {
     u32 startPhys = vfm_tsrGetPhysAddr(vfm_nmiHandler);
-    u32 endPhys   = vfm_tsrGetPhysAddr(vfm_nmiHandler);
-    return (u16) (startPhys - endPhys);
+    u32 endPhys   = vfm_tsrGetPhysAddr(vfm_nmiHandlerEnd);
+    return (u16) (endPhys - startPhys);
 }
 
 u16 vfm_tsrGetTsrSize() {

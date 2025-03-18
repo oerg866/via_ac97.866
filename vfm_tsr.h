@@ -7,11 +7,20 @@
 #include "pci.h"
 #include "types.h"
 
+#ifdef DEBUG
+#include <stdio.h>
+#define DBG_PRINT printf
+#else
+/* dunno how to do this more elegantly... */
+#pragma warning(disable: 4002)
+#define DBG_PRINT()
+#endif
+
 void sys_outPortB(u16 port, u8 outVal);
 u8 sys_inPortB(u16 port);
 
 /* Hardware/IRQ/Mem init & dma engine start */
-void vfm_tsrInitialize(pci_Device dev);
+bool vfm_tsrInitialize(pci_Device dev);
 /* Hardware/IRQ/Mem deinit & dma engine stop */
 void vfm_tsrCleanup();
 
@@ -33,4 +42,7 @@ u16 vfm_tsrGetDmaBufferCount();
 u16 vfm_tsrGetNmiHandlerSize();
 /* Gets size of the whole TSR */
 u16 vfm_tsrGetTsrSize();
+
+void vfm_puts(const char *str);
+
 #endif

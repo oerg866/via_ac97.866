@@ -10,7 +10,6 @@
 #include <stdlib.h>
 #include <dos.h>
 #include <string.h>
-#include <stdio.h>
 #include <malloc.h>
 #include <conio.h>
 #include <fcntl.h>
@@ -22,59 +21,8 @@
 #include "vfm_tsr.h"
 #include "v97_reg.h"
 
-/*
-static void vfm_printStatus(bool cr) {
-    u16 ioBase = s_vfm_ioBase;
-    printf("ioBase: %x TablePtr: %08lx Status: %02x Pos: %08lx",
-        ioBase,
-        sys_inPortL(ioBase + V97_FM_SGD_TABLE_PTR),
-        inp(ioBase + V97_FM_SGD_STATUS),
-        sys_inPortL(ioBase + V97_FM_SGD_CURRENT_POS));
-
-    printf(cr ? "\r" : "\n");
-}
-*/
-
-static void vfm_sbMixerWrite(u16 sbPort, u8 reg, u8 val) {
-    sys_outPortB(sbPort+4, reg); sys_ioDelay(3);
-    sys_outPortB(sbPort+5, val); sys_ioDelay(3);
-}
-
-static bool vfm_sbMixerInit(u16 sbPort) {
-    u16 resetPort = sbPort + 6;
-    u16 dspIoPort = sbPort + 0x0C;
-    u16 readPort  = sbPort + 0x0A;
-    i16 timeout = 1000;
-
-    /* Reset SB DSP */
-    sys_outPortB(resetPort, 1); sys_ioDelay(3);
-    sys_outPortB(resetPort, 0); sys_ioDelay(3);
-
-
-    while (timeout--) {
-        if(sys_inPortB(readPort) == 0xAA) {
-            printf("SB Mixer Init OK\n");
-            break;
-        }
-        sys_ioDelay(1);
-    }
-    
-    if (timeout == 0) {
-        printf("SB MIxer Initialization FAILED!\n");
-        return false;
-    }
-
-    /* Enable Speaker */
-    sys_outPortB(dspIoPort, 0xD1);
-
-    vfm_sbMixerWrite(sbPort, 0x22, 0xFF); /* Master Volume */
-    vfm_sbMixerWrite(sbPort, 0x26, 0xFF); /* FM Volume */
-    vfm_sbMixerWrite(sbPort, 0x28, 0xFF); /* CD Audio Volume */
-    vfm_sbMixerWrite(sbPort, 0x2E, 0xFF); /* Line In Volume */
-}
-
 static void oplWrite(u8 reg, u8 val) {
-//    printf("OPL Write: %02x %02x\n", reg, val);
+//    DBG_PRINT("OPL Write: %02x %02x\n", reg, val);
     sys_outPortB(0x388, reg);
     sys_ioDelay(40);
     sys_outPortB(0x389, val);
@@ -121,6 +69,8 @@ static void vfm_testToneLoopTest() {
 
     vfm_fmGenerateTestTone();
 
+    vfm_puts("<Key to quit>\n");
+
     while (!kbhit() && !cancel) {
         while (!cancel && !vfm_tsrHasIntOccurred()) {
             /* Crickets */
@@ -134,13 +84,14 @@ static void vfm_testToneLoopTest() {
    oplWrite(0xB0 + 0, 0x04);
 }
 
+#ifdef DBG_FILE
 /* Plays a Signed 16-Bit Stereo RAW PCM file on the FM PCM channel */
-void vfm_fileLoopTest() {
+static void vfm_fileLoopTest() {
     int fileHandle  = 0;
     u16 bufferSize = vfm_tsrGetDmaBufferSize();
 
     if (0 != _dos_open("test.snd", O_RDONLY, &fileHandle)) {
-        printf("file open error\n");
+        vfm_puts("file open error\n");
         return;
     }
 
@@ -164,7 +115,7 @@ void vfm_fileLoopTest() {
         _dos_read(fileHandle, dmaBuffer, bufferSize, &bytesRead);
         
         if (bytesRead == 0) {
-            printf("End of file!\n");
+            vfm_puts("End of file!\n");
             break;
         }
 
@@ -178,6 +129,7 @@ void vfm_fileLoopTest() {
 
     _dos_close(fileHandle);
 }
+#endif
 
 /* Attempts to find signature of NMI handler in the code pointed to by the NMI vector. */
 static bool vfm_isTsrLoaded() {
@@ -193,8 +145,11 @@ static bool vfm_isTsrLoaded() {
         actually this shouldn't happen, I think, as DOS has a default handler */
     if (nmiFunctionData == NULL) return false;
 
+    DBG_PRINT("nmiFunctionData: %lp %u\n", nmiFunctionData, nmiHandlerSize);
+
     while (nmiFunctionData + signatureSize <= nmiFunctionDataEnd) {
         if (0 == _fmemcmp(nmiFunctionData, signature, signatureSize)) {
+            DBG_PRINT("%lp %u %08lx %08lx\n", nmiFunctionData, signatureSize, *((u32 _far*) nmiFunctionData), signature[0]);
             return true;
         }
         nmiFunctionData++;
@@ -203,6 +158,7 @@ static bool vfm_isTsrLoaded() {
     return false;
 }
 
+#ifdef DBG_BUFFER
 static void vfm_dumpDmaBuffers(const char *filename) {
     FILE *f = fopen(filename, "wb");
     u16 i;
@@ -213,24 +169,31 @@ static void vfm_dumpDmaBuffers(const char *filename) {
 
     fclose(f);
 }
+#endif
 
 static void printUsage() {
-    printf("r   Load TSR\n");
-    printf("<for debugging only:>\n");
-    printf("g   Init, play test tone and wait for key press\n");
-    printf("f   Plays raw PCM S16LE file (test.snd)\n");
-    printf("p   Sends a test tone to OPL (no hw init)\n");
+    vfm_puts("r   Load TSR\n");
+    vfm_puts("<for debugging only:>\n");
+    vfm_puts("g   Init, play test tone and wait for key press\n");
+    vfm_puts("p   Sends a test tone to OPL (no hw init)\n");
+#ifdef DBG_FILE
+    vfm_puts("f   Plays raw PCM S16LE file (test.snd)\n");
+#endif
+
 }
 
 int main(int argc, char *argv[]) {
     pci_Device  dev;
     bool        tsrIsLoaded = vfm_isTsrLoaded();
 
-    printf("VIA_AC97.866     - VIA AC'97 FM Emulation TSR Version 0.1\n");
-    printf("                   (C) 2025      Eric Voirin (oerg866)\n");
-    printf("FM Emulation by:\n");
-    printf("Nuked-OPL3       - (C) 2013-2020 Nuke.YKT\n");
-    printf("---------------------------------------------------------\n");
+    vfm_puts("VIA_AC97.866     - VIA AC'97 FM Emulation TSR Version 0.4\n");
+    vfm_puts("                   (C) 2025      Eric Voirin (oerg866)\n");
+#if defined(NUKED)
+    vfm_puts("Nuked-OPL3       - (C) 2013-2020 Nuke.YKT\n");
+#elif defined (DBOPL)
+    vfm_puts("DBOPL            - (C) 2002-2021 The DOSBox Team\n");
+#endif
+    vfm_puts("\n");
 
     if (argc < 2) {
         printUsage();
@@ -240,39 +203,41 @@ int main(int argc, char *argv[]) {
     /* check if program should send a test tone to OPL (not necessarily our device) */
     if (argc > 1 && *argv[1] == 'p') {
         vfm_fmGenerateTestTone();
-        printf("OPL test tone sent\n");
+        vfm_puts("OPL test tone sent\n");
         return 0;
     }
-    
+
+#ifdef DBG_BENCH
     /* check if program should do a OPL3 generation test & benchmark */
     if (argc > 1 && *argv[1] == 'o') {
         vfm_tsrOplTest();
         return 0;
     }
+#endif
 
     /* Abort if the TSR is already loaded */
     if (tsrIsLoaded) {
-        printf("The TSR is already loaded. Aborting...\n");
+        vfm_puts("The TSR is already loaded. Aborting...\n");
         return -1;
     }
 
     /* Check if PCI bus is accessible on this machine */
     if (!pci_test()) {
-        printf("PCI Bus Error\n");
+        vfm_puts("PCI Bus Error\n");
         return -1;
     }
 
     /* Check for VIA 686x Audio Device on the bus */
     if (!pci_findDevByID(0x1106, 0x3058, &dev)) {
-        printf("Audio Device not found\n");
+        vfm_puts("Audio Device not found\n");
         return -1;
     }
 
-    /* Set up Sound Blaster mixer - TODO: Get io port programatically */
-    vfm_sbMixerInit(0x220);
-    /* Set up the TSR's specific stuff - Interrupt vectors, DMA tables, buffers */
-    vfm_tsrInitialize(dev);
-
+    /* Set up the TSR's specific stuff - SB Mixer, Interrupt vectors, DMA tables, buffers */
+    if (!vfm_tsrInitialize(dev)) {
+        vfm_puts("Aborting...\n");
+        return -1;
+    }
     
     /* check if program should be loaded as TSR */
     if (argc > 1 && *argv[1] == 'r') {
@@ -282,18 +247,23 @@ int main(int argc, char *argv[]) {
     /* check if program should do a basic fm generation test */
     if (argc > 1 && *argv[1] == 'g') {
         vfm_testToneLoopTest();
+
+#ifdef DBG_BUFFER
         vfm_dumpDmaBuffers("dump.bin");
+#endif
+
     }
     
+#ifdef DBG_FILE
     /* check if program should do a file playback test */
     if (argc > 1 && *argv[1] == 'f') {
         vfm_fileLoopTest();
     }
+#endif
 
     /* Done! :D */
-    printf("[Finished]\n");
+    vfm_puts("[Finished]\n");
 
-cleanup:
     vfm_tsrCleanup();
     return 0;
 }
