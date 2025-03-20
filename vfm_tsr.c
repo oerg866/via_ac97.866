@@ -301,12 +301,19 @@ static void vfm_tsrUnsetPCIRegisters() {
 
 /* Set up globals for us and our epical ASM core (tm) */
 static void vfm_tsrSetupGlobals(pci_Device dev) {
+    u8 pciRevision = pci_read8(dev, V97_PCI_REG_REVISION);
     g_vfm_pciDevice = dev;
 
     /* Get PCI I/O Base, FM NMI I/O Base and PCI IRQ */
     g_vfm_ioBaseDma = (u16) pci_read32(dev, V97_PCI_REG_IO_BASE_0) & 0xFFF0;
     g_vfm_ioBaseNmi = (u16) pci_read32(dev, V97_PCI_REG_IO_BASE_1) & 0xFFFC;
     g_vfm_pciIrq    = pci_read8(dev, V97_PCI_REG_IRQ_NUM);
+
+    /* In case of VT8231, the FM SGD Registers moved from I/O 2x to I/O 5x */
+    if (pciRevision >= 0x40) {
+        vfm_puts("VT8231 detected!\n\n");
+        g_vfm_ioBaseDma += 0x0030;
+    }
 }    
 
 /* Set up Virtual DMA Services (VDS) if available */

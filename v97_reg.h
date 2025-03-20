@@ -62,6 +62,7 @@ typedef union {
     u8 raw;
 } v97_FmNmiCtrl;
 
+#define V97_PCI_REG_REVISION        (0x08)
 #define V97_PCI_REG_IO_BASE_0       (0x10)
 #define V97_PCI_REG_IO_BASE_1       (0x14)
 #define V97_PCI_REG_IRQ_NUM         (0x3C)
