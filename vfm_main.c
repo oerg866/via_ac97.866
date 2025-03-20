@@ -20,6 +20,7 @@
 
 #include "vfm_tsr.h"
 #include "v97_reg.h"
+#include "version.h"
 
 static void oplWrite(u8 reg, u8 val) {
 //    DBG_PRINT("OPL Write: %02x %02x\n", reg, val);
@@ -186,7 +187,7 @@ int main(int argc, char *argv[]) {
     pci_Device  dev;
     bool        tsrIsLoaded = vfm_isTsrLoaded();
 
-    vfm_puts("VIA_AC97.866     - VIA AC'97 FM Emulation TSR Version 0.5\n");
+    vfm_puts("VIA_AC97.866     - VIA AC'97 FM Emulation TSR Version " V97_VERSION "\n");
     vfm_puts("                   (C) 2025      Eric Voirin (oerg866)\n");
 #if defined(NUKED)
     vfm_puts("Nuked-OPL3       - (C) 2013-2020 Nuke.YKT\n");

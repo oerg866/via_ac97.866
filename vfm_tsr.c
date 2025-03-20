@@ -299,8 +299,8 @@ static void vfm_tsrUnsetPCIRegisters() {
     pci_write8(g_vfm_pciDevice, V97_PCI_REG_AC_LINK_CTRL, acLinkCtrl.raw);
 }
 
+/* Set up globals for us and our epical ASM core (tm) */
 static void vfm_tsrSetupGlobals(pci_Device dev) {
-    /* Set up globals for us and our epical ASM core (tm) */
     g_vfm_pciDevice = dev;
 
     /* Get PCI I/O Base, FM NMI I/O Base and PCI IRQ */
@@ -308,6 +308,27 @@ static void vfm_tsrSetupGlobals(pci_Device dev) {
     g_vfm_ioBaseNmi = (u16) pci_read32(dev, V97_PCI_REG_IO_BASE_1) & 0xFFFC;
     g_vfm_pciIrq    = pci_read8(dev, V97_PCI_REG_IRQ_NUM);
 }    
+
+/* Set up Virtual DMA Services (VDS) if available */
+static bool vfm_setupVirtualDMA(u8 *ptr) {
+    bool vdsSupported = vfm_vdsIsSupported();
+    u8 _far *farPtr = (u8 _far*) ptr;
+
+    if (!vdsSupported) {
+        DBG_PRINT("VDS not supported, skipping...\n");
+        return false;
+    }
+
+    g_vfm_vdsDescriptor.bufferId = 0;
+    g_vfm_vdsDescriptor.physAddr = 0L;
+    g_vfm_vdsDescriptor.segment = FP_SEG(farPtr);
+    g_vfm_vdsDescriptor.offset = (u32) (FP_OFF(farPtr));
+    g_vfm_vdsDescriptor.size = (u32) (VFM_MEM_POOL_SIZE - DMA_ALIGN);
+
+    g_vfm_vdsUsed = vfm_vdsLockDmaRegion(&g_vfm_vdsDescriptor, 0x4); /* VIAFMTSR uses 4, not sure why */
+
+    return g_vfm_vdsUsed;
+}
 
 /* Initialize the memory for the DMA table and buffers, set up DMA table */
 static void vfm_tsrSetupMemoryAndDma() {   
@@ -371,26 +392,6 @@ static void vfm_tsrSetupMemoryAndDma() {
         physAddr    += (u32) FM_PCM_BUFFER_ALLOC_SIZE;
     }
 
-}
-
-static bool vfm_setupVirtualDMA(u8 *ptr) {
-    bool vdsSupported = vfm_vdsIsSupported();
-    u8 _far *farPtr = (u8 _far*) ptr;
-
-    if (!vdsSupported) {
-        DBG_PRINT("VDS not supported, skipping...\n");
-        return false;
-    }
-
-    g_vfm_vdsDescriptor.bufferId = 0;
-    g_vfm_vdsDescriptor.physAddr = 0L;
-    g_vfm_vdsDescriptor.segment = FP_SEG(farPtr);
-    g_vfm_vdsDescriptor.offset = (u32) (FP_OFF(farPtr));
-    g_vfm_vdsDescriptor.size = (u32) (VFM_MEM_POOL_SIZE - DMA_ALIGN);
-
-    g_vfm_vdsUsed = vfm_vdsLockDmaRegion(&g_vfm_vdsDescriptor, 0x4); /* VIAFMTSR uses 4, not sure why */
-
-    return g_vfm_vdsUsed;
 }
 
 bool vfm_tsrInitialize(pci_Device dev) {

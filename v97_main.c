@@ -24,6 +24,7 @@
 #include "args.h"
 
 #include "v97_reg.h"
+#include "version.h"
 
 #define __LIB866D_TAG__ "V97_MAIN"
 #include "debug.h"
@@ -161,7 +162,7 @@ static u16 v97_codecRead(void *dev, u16 reg) {
     v97_codecWait(ioBase);
     sys_ioDelay(25);
     
-    return 0xffffUL & sys_inPortL(ioBase + V97_CODEC_IO_OFFSET);
+    return (u16) (0xffffUL & sys_inPortL(ioBase + V97_CODEC_IO_OFFSET));
 }
 
 /* Write a register to the AC97 codec */
@@ -514,7 +515,7 @@ static bool v97_doSetup(pci_Device dev, bool defaultSetup) {
 
 /* Application arguments parsing */
 
-static const char v97_versionString[] = "V97_AC97.866 Version 0.2 - (C) 2025 Eric Voirin (oerg866)";
+static const char v97_versionString[] = "V97_AC97.866 Version " V97_VERSION " - (C) 2025 Eric Voirin (oerg866)";
 static const char v97_appDescription[] =
     "http://github.com/oerg866/via_ac97.866\n"
     "\n"
