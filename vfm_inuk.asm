@@ -5,110 +5,13 @@
 ; LICENSE: CC-BY-NC-SA 4.0
 ;
 ; FM Emulation TSR Interrupt Handler Data & Assembly Code
-
-    .model small, c
-    .586p
-
-vfm_tsrProcessRegistersAndGenerate  PROTO NEAR C, bankedIndex:WORD, data:WORD
-vfm_processOPLWriteFromNmi          PROTO NEAR C
-
-; NUM_BUFS            EQU 2
-; SAMPS_PER_BUF      EQU 192
-STEREO                      EQU 2
-
-DMATABLEENTRY STRUC
-    dd address
-    dd countflags
-DMATABLEENTRY ENDS
-
-
-OPLQUEUEENTRY STRUC
-    dw bankedIndex
-    db data
-OPLQUEUEENTRY ENDS
-
-    .data
-; General data
-EXTERN g_vfm_slaveIrq:              BYTE
-EXTERN g_vfm_ioBaseDma:             WORD
-EXTERN g_vfm_ioBaseNmi:             WORD
-EXTERN g_vfm_oplChip:               PTR
-
-EXTERN g_vfm_fmDmaTable:            PTR DMATABLEENTRY
-EXTERN g_vfm_fmDmaBuffers:          PTR WORD
-EXTERN g_vfm_fmDmaTablePhysAddress: DWORD
-
-
-; Globals
-PUBLIC g_DMA_IRQOccured
-PUBLIC g_DMA_BufferIndex
-PUBLIC g_vfm_oldPciIsr
-PUBLIC g_vfm_oldNmiIsr
-
-; NMI IRQ stuff
-
-g_NMI_Success               db 0
-g_NMI_Busy                  db 0
-
-; DMA IRQ stuff
-
-g_DMA_OurIRQ                db 0
-g_DMA_IRQOccured            db 0
-
-g_DMA_BufferIndex           dw 0
-
-; Our custom stacks
-; Stack for PCI DMA Interupt 
-g_DMA_Stack                 db 512  dup (0)
-g_DMA_StackTop              = $
-
-; Stack for NMI Interrupt
-g_NMI_Stack                 db 512  dup (0)
-g_NMI_StackTop              = $
-
-
-IFDEF NUKED 
-; OPL Register Write Queue
-
-OPL_REG_QUEUE_SIZE          EQU (SAMPS_PER_BUF-1)
-g_OPL_RegQueue              OPLQUEUEENTRY OPL_REG_QUEUE_SIZE dup (<0, 0>)
-g_OPL_RegCount               dw 0
-ENDIF
-
-; FM SGD Register definitions
-SGD_CHANNEL_STATUS_ACTIVE   EQU 080h
-SGD_CHANNEL_STATUS_PAUSED   EQU 40h
-SGD_CHANNEL_STATUS_QUEUED   EQU 08h
-SGD_CHANNEL_STATUS_STOPPED  EQU 04h
-SGD_CHANNEL_STATUS_EOL      EQU 02h
-SGD_CHANNEL_STATUS_FLAG     EQU 01h
-
-; I/O Offsets
-VFM_IO_FM_SGD_STATUS        EQU 20h
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
-;   Code segment
+; Nuked-OPL Core version
 
-    .code
+    INCLUDE vfm_icmn.asm
 
-IFDEF DBOPL
-Chip_Generate                       PROTO NEAR C, opl3_chip:PTR WORD, buf:PTR WORD, count:DWORD
-Chip_WriteReg                       PROTO NEAR C, opl3_chip:PTR WORD, reg:WORD, data:BYTE
-ELSE
 OPL3_Generate2ChResampled           PROTO NEAR C, opl3_chip:PTR WORD, buf:PTR WORD
 OPL3_WriteReg                       PROTO NEAR C, opl3_chip:PTR WORD, reg:WORD, data:BYTE
-ENDIF
-
-; Register backups for setting up custom stacks
-; These have to be in code segment so we can access it
-g_DMA_Backup                dw 5    dup (0AA55h)
-g_NMI_Backup                dw 5    dup (0AA55h)
-
-; After swapping back the original segment registers, we can no longer access DS,
-; so we copy the chain ISR addresses to the code segment
-g_vfm_oldPciIsr             dd 0
-g_vfm_oldNmiIsr             dd 0
 
 SWAP_STACK  MACRO BACKUP, NEWSTACK
     cli
@@ -190,13 +93,6 @@ _noNegBufferAdj:
     add di, ax
     mov di, [di]                        ; DI = Write Pointer to DMA buffer
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;
-; NUKED-OPL GENERATION - Process register queue, generate one sample per register, then generate the rest of the stream
-;
-IFDEF NUKED
-
     mov cx, word ptr [g_OPL_RegCount]   ; CX = OPL Register writes to process
 
     ; Do we have register writes to process? If not, skip this step
@@ -266,22 +162,6 @@ _generateStream:
 ;    int 3
 
 _generateStreamSkip:
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;
-; Not NUKED but DBOPL - just generate everything in 1 go
-;
-ELSE 
-
-    ; No idea how to push a DWORD in MASM 6.11 .... push dword doesn't work nor does push large. wtf?
-    db 066h, 068h
-    dd SAMPS_PER_BUF
-    push di
-    push offset g_vfm_oplChip
-    call Chip_Generate
-    add sp, 8
-
-ENDIF
 
     ; Ack the interrupt to clear it, writing FLAG and EOL to clear them
     mov al, SGD_CHANNEL_STATUS_FLAG OR SGD_CHANNEL_STATUS_EOL
@@ -370,11 +250,8 @@ vfm_nmiHandler PROC FAR
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
-; NUKED-OPL - We have a queue which gets processed in the DMA interrupt, so we add the register there
+; We have a queue which gets processed in the DMA interrupt, so we add the register there
 ;
-
-IFDEF NUKED
-
     ; Is the write queue full?
     cmp word ptr [g_OPL_RegCount], (OPL_REG_QUEUE_SIZE-2)
     ; if not, proceed
@@ -400,19 +277,6 @@ _addRegWriteToQueue:
     inc word ptr [g_OPL_RegCount]
 
     ; All done and successful!
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;
-; DBOPL - We can just write registers whenever... Speeeeeeeeeeedddddddddddd!!!
-;
-ELSE
-    sub ah, ah                  ; upper byte is dirty from before
-    push ax                     ; data
-    push bx                     ; bankedIndex
-    push offset g_vfm_oplChip   ; opl3_chip
-    call Chip_WriteReg
-    add sp, 6
-ENDIF
 
     mov byte ptr [g_NMI_Success], 1
 

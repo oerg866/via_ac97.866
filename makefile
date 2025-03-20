@@ -10,17 +10,26 @@ AFLAGS = /c /Cx /W2 /WX /nologo
 CFLAGS = $(CFLAGS) /DDEBUG
 !ENDIF
 
+!IF "$(DBG_BENCH)"=="1"
+CFLAGS = $(CFLAGS) /DDBG_BENCH
+!ENDIF
+
+
 !IF "$(NUKED)"=="1"
+# Nuked OPL
 !MESSAGE Using NUKED-OPL3
 CFLAGS_TSR = $(CFLAGS) /DNUKED
 AFLAGS = $(AFLAGS) /DNUKED
 OPL_C = nukedopl/opl3.c
+ISR_ASM = vfm_inuk.asm
 !ELSE
+# DOSBOX OPL
 !MESSAGE Using DOSBox OPL3 Core
 CFLAGS_TSR = $(CFLAGS) /DDBOPL /DPRECALC_TBL
 CFLAGS_OPL = $(CFLAGS_OPL) /DPRECALC_TBL
 AFLAGS = $(AFLAGS) /DDBOPL
 OPL_C = dbopl/dbopl.c
+ISR_ASM = vfm_idb.asm
 !ENDIF
 
 !IF "$(SAMPS_PER_BUF)"==""
@@ -53,7 +62,7 @@ VIA_AC97.EXE : clean $(OBJ_LIB866D) v97_main.obj
 
 V97TSR.EXE : clean
     $(ASM) $(AFLAGS) vfm_opt.asm
-    $(ASM) $(AFLAGS_DMA) vfm_isr.asm
+    $(ASM) $(AFLAGS_DMA) /Fovfm_isr.obj $(ISR_ASM)
     $(CC) $(CFLAGS_TSR) vfm_main.c
 	$(CC) $(CFLAGS_TSR) vfm_mini.c
 	$(CC) $(CFLAGS_DMA) vfm_tsr.c
