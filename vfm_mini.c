@@ -7,10 +7,11 @@
 
 #include "386asm.h"
 #include "pci.h"
+#include "util.h"
+
+#include "vfm_tsr.h"
 
 #include <conio.h>
-
-#define UNUSED_ARG(x) (void) (x)
 
 void sys_outPortB(u16 port, u8 outVal) {
     _asm {
@@ -215,4 +216,95 @@ void vfm_puts(const char *str) {
 		mov ah, 0x09
 		int 0x21
     }
+}
+
+bool vfm_vdsIsSupported() {
+    u8 _far *vdfFlagBytePtr = MK_FP(0x40, 0x7b); /* 040:007b, bit 5 = VDS support */
+    u8 errorCode = 0;
+    u16 versionNumber = 0;
+    u16 productNumber = 0;
+    bool retVal = false;
+
+    /*
+        - Virtual DMA Specification (VDS) - GET VERSION
+        DX = 0
+        Return: CF clear if ok, AH=major version number, AL=minor 
+        BX = product number, CX = product revision number
+        SI:DI = maximum DMA buffer, DX=flags
+        CF set on error, AL=error code
+    */
+    _asm {
+        mov ax, 0x8102
+        mov dx, 0
+        int 0x4b
+        mov errorCode, al
+        jc _noVDS /* Carry set: No VDS supported */
+        mov retVal, 1
+        mov versionNumber, ax
+        mov productNumber, bx
+_noVDS:
+    }
+
+    /* QEMU identifier is */
+    if (productNumber == 0x5145) {
+        retVal = true;
+    }
+
+    if ((*vdfFlagBytePtr) & (1 << 5)) {
+        retVal = true;
+    }
+
+    if (retVal) {
+        DBG_PRINT("Virtual DMA Support detected, version %04x product ID %04x\n", versionNumber, productNumber);
+    }
+
+    return retVal;
+}
+
+bool vfm_vdsLockDmaRegion(vfm_VirtualDmaDescriptor *dds, u16 flags) {
+    vfm_VirtualDmaDescriptor _far *farDds = (vfm_VirtualDmaDescriptor _far *) dds;
+    bool success = true;
+    u8 errorCode = 0;
+    _asm {
+        les di, farDds
+        mov ax, 0x8103
+        mov dx, flags
+        int 0x4b
+        mov errorCode, al
+        jc _lockFail
+        mov success, 1
+_lockFail:
+    }
+
+    if (success) {
+        DBG_PRINT("Virtual DMA Region locked, physical address %08lx\n", dds->physAddr);
+    } else {
+        DBG_PRINT("Virtual DMA Region lock failed, error code %02x\n", errorCode);
+    }
+
+    return success;
+}
+
+bool vfm_vdsUnlockDmaRegion(vfm_VirtualDmaDescriptor *dds) {
+    vfm_VirtualDmaDescriptor _far *farDds = (vfm_VirtualDmaDescriptor _far *) dds;
+    bool success = true;
+    u8 errorCode = 0;
+    _asm {
+        les di, farDds
+        mov ax, 0x8104
+        xor dx, dx
+        int 0x4b
+        mov errorCode, al
+        jc _lockFail
+        mov success, 1
+_lockFail:
+    }
+
+    if (success) {
+        DBG_PRINT("Virtual DMA Region Unlocked\n");
+    } else {
+        DBG_PRINT("Virtual DMA Region Unlock failed, error code %02x\n", errorCode);
+    }
+
+    return success;
 }

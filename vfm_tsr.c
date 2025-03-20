@@ -44,6 +44,8 @@ u16                                 g_vfm_pciIrq    = 0;                    /* I
 bool                                g_vfm_slaveIrq;                         /* Device is on master/slave PIC (true if IRQ > 7) */
 u16                                 g_vfm_ioBaseDma = 0;                    /* Base I/O port for Audio Codec / SGD Interface */
 u16                                 g_vfm_ioBaseNmi = 0;                    /* Base I/O port for FM NMI Status / Data */
+vfm_VirtualDmaDescriptor            g_vfm_vdsDescriptor;                    /* VDS Descriptor for Virtual DMA services */
+bool                                g_vfm_vdsUsed = false;                  /* Flag indicating that VDS is used in this session */
 
 /* Definitions from vfm_isr.asm */
 extern u8                           g_DMA_IRQOccured;                       /* Flag by ISR when device IRQ has occured *and* was handled by us */
@@ -166,8 +168,6 @@ static void vfm_tsrStartDma() {
     sgdCtrl.raw = 0;
     sgdCtrl.start = 1;              /* SGD Start */
     sys_outPortB(g_vfm_ioBaseDma + V97_FM_SGD_CTRL, sgdCtrl.raw);
-
-//    _asm{int 3};
 
     sys_ioDelay(1000);
 
@@ -320,6 +320,12 @@ static void vfm_tsrSetupMemoryAndDma() {
     alignedPtr -= ((u16) alignedPtr % DMA_ALIGN);
     physAddr = vfm_tsrGetPhysAddr(alignedPtr);
 
+    /* Attempt to set up virtual DMA region in case we're being LoadHigh'd */
+    if (vfm_setupVirtualDMA(alignedPtr)) {
+        /* Override since physAddr may be remapped for HMA */
+        physAddr = g_vfm_vdsDescriptor.physAddr;
+    }
+
     /* Safety first :-) */
     g_DMA_IRQOccured = 0;
     g_DMA_BufferIndex = 0;
@@ -360,13 +366,31 @@ static void vfm_tsrSetupMemoryAndDma() {
             g_vfm_fmDmaTable[i].countFlags.length,
             g_vfm_fmDmaTable[i].countFlags.eol,
             g_vfm_fmDmaTable[i].countFlags.flag);
-//        printf("[DMA Table DBG] %08lx | Base: %lp, Physical 0x%08lx\n", g_vfm_fmDmaTablePhysAddress, (u8 far*) alignedPtr, physAddr);
 
         alignedPtr  +=       FM_PCM_BUFFER_ALLOC_SIZE;
         physAddr    += (u32) FM_PCM_BUFFER_ALLOC_SIZE;
     }
 
-//    vfm_tsrPrintStatus(true);
+}
+
+static bool vfm_setupVirtualDMA(u8 *ptr) {
+    bool vdsSupported = vfm_vdsIsSupported();
+    u8 _far *farPtr = (u8 _far*) ptr;
+
+    if (!vdsSupported) {
+        DBG_PRINT("VDS not supported, skipping...\n");
+        return false;
+    }
+
+    g_vfm_vdsDescriptor.bufferId = 0;
+    g_vfm_vdsDescriptor.physAddr = 0L;
+    g_vfm_vdsDescriptor.segment = FP_SEG(farPtr);
+    g_vfm_vdsDescriptor.offset = (u32) (FP_OFF(farPtr));
+    g_vfm_vdsDescriptor.size = (u32) (VFM_MEM_POOL_SIZE - DMA_ALIGN);
+
+    g_vfm_vdsUsed = vfm_vdsLockDmaRegion(&g_vfm_vdsDescriptor, 0x4); /* VIAFMTSR uses 4, not sure why */
+
+    return g_vfm_vdsUsed;
 }
 
 bool vfm_tsrInitialize(pci_Device dev) {
@@ -382,20 +406,24 @@ bool vfm_tsrInitialize(pci_Device dev) {
     vfm_puts("\xFE");
 
     vfm_tsrStopDma();           vfm_puts("\xFE");   /* Stop any previous DMA (shouldn't happen but you never know) */
-    vfm_tsrSetupMemoryAndDma(); vfm_puts("\xFE");   /* Init DMA tables and buffers */    
+    vfm_tsrSetupMemoryAndDma(); vfm_puts("\xFE");   /* Init DMA tables and buffers */
     vfm_oplInit();              vfm_puts("\xFE");   /* Init OPL3 Emulator */
     vfm_tsrSetupInterrupts();   vfm_puts("\xFE");   /* Set up vectors and PIC for our interrupts */
     vfm_tsrSetupPCIRegisters(); vfm_puts("\xFE");   /* Set up PCI registers for playback & DMA */ 
     vfm_tsrStartDma();          vfm_puts("\xFE");   /* Start DMA */
 
     vfm_puts("\n\nInit Complete\n");
-//    printf("TSR Size: %u\n", vfm_tsrGetTsrSize());
 }
 
 void vfm_tsrCleanup() {
     vfm_tsrStopDma();
     vfm_tsrUnsetPCIRegisters();
     vfm_tsrRestoreInterrupts();
+
+    /* If we had a VDS region locked, we need to unlocked */
+    if (g_vfm_vdsUsed) {
+        vfm_vdsUnlockDmaRegion(&g_vfm_vdsDescriptor);
+    }
 }
 
 void vfm_tsrPrintStatus(bool cr) {
@@ -470,9 +498,9 @@ void vfm_tsrOplTest() {
             if (reg.r == 0xffff && reg.v == 0xff) break;
             
 	        vfm_oplReg(reg.r, reg.v);
-//            vfm_oplGenOne(streamOut);
-//            streamOut += STEREO;
-//            toWrite--;
+            vfm_oplGenOne(streamOut);
+            streamOut += STEREO;
+            toWrite--;
         }
 
         vfm_oplGen(streamOut, toWrite);

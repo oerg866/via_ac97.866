@@ -16,6 +16,16 @@
 #define DBG_PRINT()
 #endif
 
+#pragma pack (1)
+typedef struct {
+    u32 size;
+    u32 offset;
+    u16 segment;
+    u16 bufferId;
+    u32 physAddr;
+} vfm_VirtualDmaDescriptor;
+#pragma pack()
+
 void sys_outPortB(u16 port, u8 outVal);
 u8 sys_inPortB(u16 port);
 
@@ -43,6 +53,14 @@ u16 vfm_tsrGetNmiHandlerSize();
 /* Gets size of the whole TSR */
 u16 vfm_tsrGetTsrSize();
 
+/* Custom puts method to avoid MS C Library usage */
 void vfm_puts(const char *str);
+
+/* Checks if Virtual DMA Services (VDS) are supported */
+bool vfm_vdsIsSupported();
+/* Locks a DMA region using VDS */
+bool vfm_vdsLockDmaRegion(vfm_VirtualDmaDescriptor *dds, u16 flags);
+/* Unlocks a DMA region using VDS */
+bool vfm_vdsUnlockDmaRegion(vfm_VirtualDmaDescriptor *dds);
 
 #endif
