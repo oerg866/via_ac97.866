@@ -186,7 +186,7 @@ int main(int argc, char *argv[]) {
     pci_Device  dev;
     bool        tsrIsLoaded = vfm_isTsrLoaded();
 
-    vfm_puts("VIA_AC97.866     - VIA AC'97 FM Emulation TSR Version 0.4\n");
+    vfm_puts("VIA_AC97.866     - VIA AC'97 FM Emulation TSR Version 0.5\n");
     vfm_puts("                   (C) 2025      Eric Voirin (oerg866)\n");
 #if defined(NUKED)
     vfm_puts("Nuked-OPL3       - (C) 2013-2020 Nuke.YKT\n");
