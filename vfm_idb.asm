@@ -14,7 +14,7 @@ Chip_Generate   PROTO NEAR C, opl3_chip:PTR WORD, buf:PTR WORD, count:WORD
 Chip_WriteReg   PROTO NEAR C, opl3_chip:PTR WORD, reg:WORD, data:BYTE
 
 vfm_dmaInterruptHandler PROC FAR
-    int 3
+    ;int 3
 
     SWAP_STACK      g_DMA_Backup, g_DMA_StackTop
     
@@ -62,9 +62,6 @@ vfm_dmaInterruptHandler PROC FAR
 _noNegBufferAdj:
     ; Update index with final value
     mov [g_DMA_BufferIndex], ax
-    
-    ; debug output current status
-;M    out 080h, al
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ; Next step: Process pending OPL register writes
@@ -76,6 +73,7 @@ _noNegBufferAdj:
     mov di, [di]                        ; DI = Write Pointer to DMA buffer
 
     mov cx, word ptr [g_OPL_RegCount]   ; CX = OPL Register writes to process
+    mov dx, SAMPS_PER_BUF               ; DX = amount of samples to generate
 
     ; Do we have register writes to process? If not, skip this step
     or cx, cx
@@ -87,6 +85,9 @@ _processRegisters:
 
     ; Write register to emualted opl chip
     push cx
+    push dx
+    push di
+    push si
 
     push word ptr [si+2]       ; data
     push word ptr [si+0]       ; bankedIndex
@@ -100,24 +101,36 @@ _processRegisters:
     call Chip_Generate  
     add sp, 6
 
+    pop si
+    pop di
+    pop dx
     pop cx
 
-    add di, 2*2 ; Advance stream pointer
-    add si, 3   ; next register
-    dec cx
-    jnz _processRegisters
+    add di, 2*2             ; Advance stream pointer
+    add si, 3               ; next register
+    dec cx                  ; Decrement amount of registers to process
+    dec dx                  ; Decrement amount of samples to generate
+    jz _registersDone       ; No more samples to generate -> exit loop, cx contains registers left 
+    or cx, cx
+    jnz _processRegisters   ; No more registers to process -> exitt loop, dx contains samples left
+
+_registersDone:
+
+    ; Update register queue entry count
+    mov word ptr [g_OPL_RegCount], cx
+    or cx, cx
+    jz _processRegistersSkip
+
+    ; CX = regs left to write
+    ; SI = pointer to first unprocessed register queue entry
+    ; Move the rest of the registers to the start of the queue
+    push di
+    call vfm_moveRegistersBackToStart
+    pop di
+    ; Update the counter
 
 _processRegistersSkip:
-    mov cx, SAMPS_PER_BUF      ; DX = Samples to write after processing registers
-    sub cx, word ptr [g_OPL_RegCount]   ; Subtract register count
-    
-    jns _noError
-; Etoooo bleh???
-    int 3
-
-_noError:
-
-    mov word ptr [g_OPL_RegCount], 0    ; Reset register count for next iteration
+    mov cx, dx      ; CX = Samples to write after processing registers
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ; DONE WITH REGISTER PROCESSING, now just generate the rest of the stream.
@@ -126,7 +139,6 @@ _noError:
     or cx, cx
     jz _generateStreamSkip
 
-;_generateStream:
     ; Call OPL emulator, c doesnt save the regs here :(
 
     push cx
@@ -185,7 +197,6 @@ vfm_dmaInterruptHandler ENDP
 ; NMI / SMI Handler
 ;
 vfm_nmiHandler PROC FAR
-    int 3
 
     SWAP_STACK      g_NMI_Backup, g_NMI_StackTop
 
@@ -230,7 +241,7 @@ vfm_nmiHandler PROC FAR
 ; We have a queue which gets processed in the DMA interrupt, so we add the register there
 ;
     ; Is the write queue full?
-    cmp word ptr [g_OPL_RegCount], (OPL_REG_QUEUE_SIZE-2)
+    cmp word ptr [g_OPL_RegCount], (OPL_REG_QUEUE_SIZE)
     ; if not, proceed
     jl _addRegWriteToQueue
     

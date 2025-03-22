@@ -75,7 +75,7 @@ g_NMI_Stack                 db 512  dup (0)
 g_NMI_StackTop              = $
 
 ; OPL Register Write Queue
-OPL_REG_QUEUE_SIZE          EQU (SAMPS_PER_BUF-1)
+OPL_REG_QUEUE_SIZE          EQU 512
 g_OPL_RegQueue              OPLQUEUEENTRY OPL_REG_QUEUE_SIZE dup (<0, 0>)
 g_OPL_RegCount               dw 0
 
@@ -105,3 +105,28 @@ g_NMI_Backup                dw 5    dup (0AA55h)
 ; so we copy the chain ISR addresses to the code segment
 g_vfm_oldPciIsr             dd 0
 g_vfm_oldNmiIsr             dd 0
+
+; After processing registers, 
+; si = current register queue entry
+; cx = amount of registers to move
+vfm_moveRegistersBackToStart proc near
+    ; Early return if c
+    or cx, cx
+    jz _moveEnd
+
+    ; int 3
+
+    ; es:di = start of register queue
+    push ds
+    pop es
+    mov di, offset g_OPL_RegQueue
+
+_moveLoop:
+    ; [es:di]++ = [si]++
+    movsw   ; reg index
+    movsb   ; data
+    loop _moveLoop
+
+_moveEnd:
+    ret
+vfm_moveRegistersBackToStart endp
