@@ -17,6 +17,7 @@ OPLQUEUEENTRY ENDS
 
 SWAP_STACK  MACRO BACKUP, NEWSTACK
     cli
+    cld
     mov cs:[BACKUP+0], ax
     mov cs:[BACKUP+2], ss
     mov cs:[BACKUP+4], sp

@@ -22,6 +22,8 @@ vfm_dmaInterruptHandler PROC FAR
 
     ; Read FM SGD Status register
     pushad
+    push es
+
     mov dx, [g_vfm_ioBaseDma]
     add dx, VFM_IO_FM_SGD_STATUS
     in al, dx
@@ -142,6 +144,7 @@ _generateStreamSkip:
     out dx, al
 
 _skipIrqAck:
+    pop es
     popad
 
     ; Did we handle this IRQ? If not, chain to next ISR
