@@ -256,7 +256,7 @@ static Bits DB_FASTCALL WaveForm0( Bitu i, Bitu volume ) {
 }
 static Bits DB_FASTCALL WaveForm1( Bitu i, Bitu volume ) {
 	uint32_t wave = SinTable[i & 511];
-	wave |= ( ( (i ^ 512 ) & 512) - 1) >> ( 32 - 12 );
+	wave |= ( ( ( i ^ 512UL ) & 512UL) - 1UL) >> ( 32 - 12 );
 	return MakeVolume( wave, volume );
 }
 static Bits DB_FASTCALL WaveForm2( Bitu i, Bitu volume ) {
@@ -265,7 +265,7 @@ static Bits DB_FASTCALL WaveForm2( Bitu i, Bitu volume ) {
 }
 static Bits DB_FASTCALL WaveForm3( Bitu i, Bitu volume ) {
 	Bitu wave = SinTable[i & 255];
-	wave |= ( ( (i ^ 256 ) & 256) - 1) >> ( 32 - 12 );
+	wave |= ( ( ( i ^ 256UL) & 256UL) - 1UL) >> ( 32 - 12 );
 	return MakeVolume( wave, volume );
 }
 static Bits DB_FASTCALL WaveForm4( Bitu i, Bitu volume ) {
@@ -273,9 +273,9 @@ static Bits DB_FASTCALL WaveForm4( Bitu i, Bitu volume ) {
 	Bitu wave;
 	//Twice as fast
 	i <<= 1;
-	neg = 0 - (( i >> 9) & 1);//Create ~0 or 0
+	neg = 0UL - (( i >> 9 ) & 1);//Create ~0 or 0
 	wave = SinTable[i & 511];
-	wave |= ( ( (i ^ 512 ) & 512) - 1) >> ( 32 - 12 );
+	wave |= ( ( ( i ^ 512UL ) & 512UL) - 1UL) >> ( 32 - 12 );
 	return (MakeVolume( wave, volume ) ^ neg) - neg;
 }
 static Bits DB_FASTCALL WaveForm5( Bitu i, Bitu volume ) {
@@ -283,7 +283,7 @@ static Bits DB_FASTCALL WaveForm5( Bitu i, Bitu volume ) {
 	//Twice as fast
 	i <<= 1;
 	wave = SinTable[i & 511];
-	wave |= ( ( (i ^ 512 ) & 512) - 1) >> ( 32 - 12 );
+	wave |= ( ( ( i ^ 512UL ) & 512UL) - 1UL) >> ( 32 - 12 );
 	return MakeVolume( wave, volume );
 }
 static Bits DB_FASTCALL WaveForm6( Bitu i, Bitu volume ) {
@@ -292,10 +292,10 @@ static Bits DB_FASTCALL WaveForm6( Bitu i, Bitu volume ) {
 }
 static Bits DB_FASTCALL WaveForm7( Bitu i, Bitu volume ) {
 	//Negative is reversed here
-	Bits neg = (( i >> 9) & 1) - 1;
+	Bits neg = (( i >> 9) & 1L) - 1L;
 	Bitu wave = (i << 3);
 	//When negative the volume also runs backwards
-	wave = ((wave ^ neg) - neg) & 4095;
+	wave = ((wave ^ neg) - neg) & 4095UL;
 	return (MakeVolume( wave, volume ) ^ neg) - neg;
 }
 
