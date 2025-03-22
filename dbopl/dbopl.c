@@ -504,9 +504,6 @@ static const Operator_VolumeHandler VolumeHandlerTable[5] = {
 static inline Bitu Operator_ForwardVolume(Operator *op) {
 	Bitu ret;
 	ret = (Bitu)(op->currentLevel + op->volHandler(op));
-
-	//	printf("current: %lu ret %lu\n", (long unsigned) op->currentLevel, (long unsigned) ret);
-
 	return ret;
 }
 
@@ -707,8 +704,8 @@ static void Operator_Reset(Operator *op) {
 
 #define CH_OP(c, x) (((c) + (x>>1))->op[x & 1])
 
-static Channel* Channel_Block_sm2AM( Channel* ch, Chip* chip, uint32_t samples, int16_t* output ) {
-	uint32_t i;
+static Channel* Channel_Block_sm2AM( Channel* ch, Chip* chip, uint16_t samples, int16_t* output ) {
+	uint16_t i;
 	if (Operator_Silent(&CH_OP(ch, 0)) && Operator_Silent(&CH_OP(ch, 1))) {
 		ch->old[0] = ch->old[1] = 0L;
 		return ch + 1;
@@ -735,8 +732,8 @@ static Channel* Channel_Block_sm2AM( Channel* ch, Chip* chip, uint32_t samples, 
 	return ( ch + 1 );
 }
 
-static Channel* Channel_Block_sm2FM( Channel* ch, Chip* chip, uint32_t samples, int16_t* output ) {
-	uint32_t i;
+static Channel* Channel_Block_sm2FM( Channel* ch, Chip* chip, uint16_t samples, int16_t* output ) {
+	uint16_t i;
 
 	if ( Operator_Silent(&CH_OP(ch, 1)) ) {
 		ch->old[0] = ch->old[1] = 0L;
@@ -765,8 +762,8 @@ static Channel* Channel_Block_sm2FM( Channel* ch, Chip* chip, uint32_t samples, 
 	return ( ch + 1 );
 }
 
-static Channel* Channel_Block_sm3AM( Channel* ch, Chip* chip, uint32_t samples, int16_t* output ) {
-	uint32_t i;
+static Channel* Channel_Block_sm3AM( Channel* ch, Chip* chip, uint16_t samples, int16_t* output ) {
+	uint16_t i;
 	
 	if ( Operator_Silent(&CH_OP(ch, 0)) && Operator_Silent(&CH_OP(ch, 1)) ) {
 		ch->old[0] = ch->old[1] = 0L;
@@ -795,8 +792,8 @@ static Channel* Channel_Block_sm3AM( Channel* ch, Chip* chip, uint32_t samples, 
 	return ( ch + 1 );
 }
 
-static Channel* Channel_Block_sm3FM( Channel* ch, Chip* chip, uint32_t samples, int16_t* output ) {
-	uint32_t i;
+static Channel* Channel_Block_sm3FM( Channel* ch, Chip* chip, uint16_t samples, int16_t* output ) {
+	uint16_t i;
 	
 	if ( Operator_Silent(&CH_OP(ch, 1)) ) {
 		ch->old[0] = ch->old[1] = 0L;
@@ -825,8 +822,8 @@ static Channel* Channel_Block_sm3FM( Channel* ch, Chip* chip, uint32_t samples, 
 	return ( ch + 1 );
 }
 
-static Channel* Channel_Block_sm3FMFM( Channel* ch, Chip* chip, uint32_t samples, int16_t* output ) {
-	uint32_t i;
+static Channel* Channel_Block_sm3FMFM( Channel* ch, Chip* chip, uint16_t samples, int16_t* output ) {
+	uint16_t i;
 	
 	if ( Operator_Silent(&CH_OP(ch, 3)) ) {
 		ch->old[0] = ch->old[1] = 0L;
@@ -861,8 +858,8 @@ static Channel* Channel_Block_sm3FMFM( Channel* ch, Chip* chip, uint32_t samples
 	return( ch + 2 );
 }
 
-static Channel* Channel_Block_sm3AMFM( Channel* ch, Chip* chip, uint32_t samples, int16_t* output ) {
-	uint32_t i;
+static Channel* Channel_Block_sm3AMFM( Channel* ch, Chip* chip, uint16_t samples, int16_t* output ) {
+	uint16_t i;
 	
 	if ( Operator_Silent(&CH_OP(ch, 0)) && Operator_Silent(&CH_OP(ch, 3)) ) {
 		ch->old[0] = ch->old[1] = 0L;
@@ -897,8 +894,8 @@ static Channel* Channel_Block_sm3AMFM( Channel* ch, Chip* chip, uint32_t samples
 	return( ch + 2 );
 }
 
-static Channel* Channel_Block_sm3FMAM( Channel* ch, Chip* chip, uint32_t samples, int16_t* output ) {
-	uint32_t i;
+static Channel* Channel_Block_sm3FMAM( Channel* ch, Chip* chip, uint16_t samples, int16_t* output ) {
+	uint16_t i;
 	
 	if ( Operator_Silent(&CH_OP(ch, 1)) && Operator_Silent(&CH_OP(ch, 3)) ) {
 		ch->old[0] = ch->old[1] = 0;
@@ -933,8 +930,8 @@ static Channel* Channel_Block_sm3FMAM( Channel* ch, Chip* chip, uint32_t samples
 	return( ch + 2 );
 }
 
-static Channel* Channel_Block_sm3AMAM( Channel* ch, Chip* chip, uint32_t samples, int16_t* output ) {
-	uint32_t i;
+static Channel* Channel_Block_sm3AMAM( Channel* ch, Chip* chip, uint16_t samples, int16_t* output ) {
+	uint16_t i;
 	
 	if ( Operator_Silent(&CH_OP(ch, 0)) && Operator_Silent(&CH_OP(ch, 2)) && Operator_Silent(&CH_OP(ch, 3)) ) {
 		ch->old[0] = ch->old[1] = 0;
@@ -970,32 +967,83 @@ static Channel* Channel_Block_sm3AMAM( Channel* ch, Chip* chip, uint32_t samples
 	return( ch + 2 );
 }
 
-static void Channel_GeneratePercussion_OPL2( Channel *ch, Chip* chip, int16_t* output );
-static void Channel_GeneratePercussion_OPL3( Channel *ch, Chip* chip, int16_t* output );
-
-static Channel* Channel_Block_sm2Percussion( Channel* ch, Chip* chip, uint32_t samples, int16_t* output ) {
-	Bitu i;
-
-	//Init the operators with the the current vibrato and tremolo values
-	Operator_Prepare( &CH_OP(ch, 0), chip );
-	Operator_Prepare( &CH_OP(ch, 1), chip );
-
-	Operator_Prepare( &CH_OP(ch, 2), chip );
-	Operator_Prepare( &CH_OP(ch, 3), chip );
-
-	Operator_Prepare( &CH_OP(ch, 4), chip );
-	Operator_Prepare( &CH_OP(ch, 5), chip );
-
-	for ( i = 0; i < samples; i++ ) {
-		Channel_GeneratePercussion_OPL2( ch, chip, output );
-		output += 2;
+static inline uint32_t Chip_ForwardNoise( Chip* chip ) {
+	uint32_t count;
+	chip->noiseCounter += NoiseAdd;
+	count = chip->noiseCounter >> LFO_SH;
+	chip->noiseCounter &= ((1UL<<LFO_SH) - 1);
+	for ( ; count > 0; --count ) {
+		//Noise calculation from mame
+		chip->noiseValue ^= ( 0x800302UL ) & ( 0UL - (chip->noiseValue & 1UL ) );
+		chip->noiseValue >>= 1;
 	}
-
-	return( ch + 3 );
+	return chip->noiseValue;
 }
 
-static Channel* Channel_Block_sm3Percussion( Channel* ch, Chip* chip, uint32_t samples, int16_t* output ) {
-	Bitu i;
+// Inline here because we optimized this to only have one instance
+static inline void Channel_GeneratePercussion( Channel *ch, Chip* chip, int16_t* output ) {
+	//BassDrum
+	int32_t mod = (int32_t)((uint32_t)(ch->old[0] + ch->old[1]) >> ch->feedback);
+
+	ch->old[0] = ch->old[1];
+	ch->old[1] = (int32_t)Operator_GetSample( &CH_OP(ch, 0), mod );
+
+	//When bassdrum is in AM mode first operator is ignoed
+	if ( ch->regC0 & 1 ) {
+		mod = 0;
+	} else {
+		mod = ch->old[0];
+	}
+
+	{
+		int32_t sample = (int32_t)Operator_GetSample( &CH_OP(ch, 1), mod );
+
+		//Precalculate stuff used by other outputs
+		uint32_t noiseBit = Chip_ForwardNoise(chip) & 0x1;
+		uint32_t c2 = (uint32_t)Operator_ForwardWave(&CH_OP(ch, 2));
+		uint32_t c5 = (uint32_t)Operator_ForwardWave(&CH_OP(ch, 5));
+		uint32_t phaseBit = (((c2 & 0x88) ^ ((c2<<5) & 0x80)) | ((c5 ^ (c5<<2)) & 0x20)) ? 0x02 : 0x00;
+	
+		{
+			//Hi-Hat
+			uint32_t hhVol = (uint32_t)Operator_ForwardVolume(&CH_OP(ch, 2));
+			if ( !ENV_SILENT( hhVol ) ) {
+				uint32_t hhIndex = (phaseBit<<8) | (0x34 << ( phaseBit ^ (noiseBit << 1 )));
+				sample += (int32_t)Operator_GetWave(&CH_OP(ch, 2), hhIndex, hhVol );
+			}
+		}
+
+		{
+			//Snare Drum
+			uint32_t sdVol = (uint32_t)Operator_ForwardVolume(&CH_OP(ch, 3));
+			if ( !ENV_SILENT( sdVol ) ) {
+				uint32_t sdIndex = ( 0x100 + (c2 & 0x100) ) ^ ( noiseBit << 8 );
+				sample += (int32_t)Operator_GetWave(&CH_OP(ch, 3), sdIndex, sdVol );
+			}
+		}
+
+		{
+			//Tom-tom
+			sample += (int32_t)Operator_GetSample(&CH_OP(ch, 4), 0);
+		}
+
+		{
+			//Top-Cymbal
+			uint32_t tcVol = (uint32_t)Operator_ForwardVolume(&CH_OP(ch, 5));
+			if ( !ENV_SILENT( tcVol ) ) {
+				uint32_t tcIndex = (1 + phaseBit) << 8;
+				sample += (int32_t)Operator_GetWave( &CH_OP(ch, 5), tcIndex, tcVol );
+			}
+		}
+
+		sample <<= 1;
+		output[0] += (int16_t) sample;
+		output[1] += (int16_t) sample;
+	}
+}
+
+static Channel* Channel_Block_smPercussion( Channel* ch, Chip* chip, uint16_t samples, int16_t* output ) {
+	uint16_t i;
 
 	//Init the operators with the the current vibrato and tremolo values
 	Operator_Prepare( &CH_OP(ch, 0), chip );
@@ -1008,7 +1056,7 @@ static Channel* Channel_Block_sm3Percussion( Channel* ch, Chip* chip, uint32_t s
 	Operator_Prepare( &CH_OP(ch, 5), chip );
 
 	for ( i = 0; i < samples; i++ ) {
-		Channel_GeneratePercussion_OPL3( ch, chip, output );
+		Channel_GeneratePercussion( ch, chip, output );
 		output += 2;
 	}
 
@@ -1193,141 +1241,6 @@ void Channel_WriteC0( Channel* ch, const Chip* chip, uint8_t val ) {
 	Channel_UpdateSynth( ch, chip );
 }
 
-static inline uint32_t Chip_ForwardNoise( Chip* chip ) {
-	uint32_t count;
-	chip->noiseCounter += NoiseAdd;
-	count = chip->noiseCounter >> LFO_SH;
-	chip->noiseCounter &= ((1UL<<LFO_SH) - 1);
-	for ( ; count > 0; --count ) {
-		//Noise calculation from mame
-		chip->noiseValue ^= ( 0x800302UL ) & ( 0UL - (chip->noiseValue & 1UL ) );
-		chip->noiseValue >>= 1;
-	}
-	return chip->noiseValue;
-}
-
-static void Channel_GeneratePercussion_OPL2( Channel *ch, Chip* chip, int16_t* output ) {
-	//BassDrum
-	int32_t mod = (int32_t)((uint32_t)(ch->old[0] + ch->old[1]) >> ch->feedback);
-
-	ch->old[0] = ch->old[1];
-	ch->old[1] = (int32_t)Operator_GetSample( &CH_OP(ch, 0), mod );
-
-	//When bassdrum is in AM mode first operator is ignoed
-	if ( ch->regC0 & 1 ) {
-		mod = 0;
-	} else {
-		mod = ch->old[0];
-	}
-
-	{
-		int32_t sample = (int32_t)Operator_GetSample( &CH_OP(ch, 1), mod );
-
-		//Precalculate stuff used by other outputs
-		uint32_t noiseBit = Chip_ForwardNoise(chip) & 0x1;
-		uint32_t c2 = (uint32_t)Operator_ForwardWave(&CH_OP(ch, 2));
-		uint32_t c5 = (uint32_t)Operator_ForwardWave(&CH_OP(ch, 5));
-		uint32_t phaseBit = (((c2 & 0x88) ^ ((c2<<5) & 0x80)) | ((c5 ^ (c5<<2)) & 0x20)) ? 0x02 : 0x00;
-	
-		{
-			//Hi-Hat
-			uint32_t hhVol = (uint32_t)Operator_ForwardVolume(&CH_OP(ch, 2));
-			if ( !ENV_SILENT( hhVol ) ) {
-				uint32_t hhIndex = (phaseBit<<8) | (0x34 << ( phaseBit ^ (noiseBit << 1 )));
-				sample += (int32_t)Operator_GetWave(&CH_OP(ch, 2), hhIndex, hhVol );
-			}
-		}
-
-		{
-			//Snare Drum
-			uint32_t sdVol = (uint32_t)Operator_ForwardVolume(&CH_OP(ch, 3));
-			if ( !ENV_SILENT( sdVol ) ) {
-				uint32_t sdIndex = ( 0x100 + (c2 & 0x100) ) ^ ( noiseBit << 8 );
-				sample += (int32_t)Operator_GetWave(&CH_OP(ch, 3), sdIndex, sdVol );
-			}
-		}
-
-		{
-			//Tom-tom
-			sample += (int32_t)Operator_GetSample(&CH_OP(ch, 4), 0);
-		}
-
-		{
-			//Top-Cymbal
-			uint32_t tcVol = (uint32_t)Operator_ForwardVolume(&CH_OP(ch, 5));
-			if ( !ENV_SILENT( tcVol ) ) {
-				uint32_t tcIndex = (1 + phaseBit) << 8;
-				sample += (int32_t)Operator_GetWave( &CH_OP(ch, 5), tcIndex, tcVol );
-			}
-		}
-
-		sample <<= 1;
-		output[0] += (int16_t) sample;
-		output[1] += (int16_t) sample;
-	}
-}
-
-static void Channel_GeneratePercussion_OPL3( Channel *ch, Chip* chip, int16_t* output ) {
-	//BassDrum
-	int32_t mod = (int32_t)((uint32_t)(ch->old[0] + ch->old[1]) >> ch->feedback);
-
-	ch->old[0] = ch->old[1];
-	ch->old[1] = (int32_t)Operator_GetSample( &CH_OP(ch, 0), mod );
-
-	//When bassdrum is in AM mode first operator is ignoed
-	if ( ch->regC0 & 1 ) {
-		mod = 0;
-	} else {
-		mod = ch->old[0];
-	}
-
-	{
-		int32_t sample = (int32_t)Operator_GetSample( &CH_OP(ch, 1), mod );
-
-		//Precalculate stuff used by other outputs
-		uint32_t noiseBit = Chip_ForwardNoise(chip) & 0x1;
-		uint32_t c2 = (uint32_t)Operator_ForwardWave(&CH_OP(ch, 2));
-		uint32_t c5 = (uint32_t)Operator_ForwardWave(&CH_OP(ch, 5));
-		uint32_t phaseBit = (((c2 & 0x88) ^ ((c2<<5) & 0x80)) | ((c5 ^ (c5<<2)) & 0x20)) ? 0x02 : 0x00;
-	
-		{
-			//Hi-Hat
-			uint32_t hhVol = (uint32_t)Operator_ForwardVolume(&CH_OP(ch, 2));
-			if ( !ENV_SILENT( hhVol ) ) {
-				uint32_t hhIndex = (phaseBit<<8) | (0x34 << ( phaseBit ^ (noiseBit << 1 )));
-				sample += (int32_t)Operator_GetWave(&CH_OP(ch, 2), hhIndex, hhVol );
-			}
-		}
-
-		{
-			//Snare Drum
-			uint32_t sdVol = (uint32_t)Operator_ForwardVolume(&CH_OP(ch, 3));
-			if ( !ENV_SILENT( sdVol ) ) {
-				uint32_t sdIndex = ( 0x100 + (c2 & 0x100) ) ^ ( noiseBit << 8 );
-				sample += (int32_t)Operator_GetWave(&CH_OP(ch, 3), sdIndex, sdVol );
-			}
-		}
-
-		{
-			//Tom-tom
-			sample += (int32_t)Operator_GetSample(&CH_OP(ch, 4), 0);
-		}
-
-		{
-			//Top-Cymbal
-			uint32_t tcVol = (uint32_t)Operator_ForwardVolume(&CH_OP(ch, 5));
-			if ( !ENV_SILENT( tcVol ) ) {
-				uint32_t tcIndex = (1 + phaseBit) << 8;
-				sample += (int32_t)Operator_GetWave( &CH_OP(ch, 5), tcIndex, tcVol );
-			}
-		}
-
-		sample <<= 1;
-		output[0] += (int16_t) sample;
-		output[1] += (int16_t) sample;
-	}
-}
-
 
 /*
 	Chip
@@ -1339,19 +1252,9 @@ static void InitTables( void );
 static void DumpTables( Chip* chip );
 #endif
 
-/* MSC800 memset is sus... */
-static inline void Chip_Memset(void *ptr, uint8_t value, uint32_t size) {
-    uint8_t *u8ptr = (uint8_t *) ptr;
-    while (size--) {
-        *u8ptr = value;
-        u8ptr++;
-    }
-}
-
-
 void Chip_Reset( Chip* chip, bool _opl3Mode, uint32_t rate ) {
 	uint16_t i;
-	Chip_Memset(chip, 0, sizeof(Chip));
+	memset(chip, 0, sizeof(Chip));
 
 	for (i = 0; i < 18; i++) {
 		Channel_Reset(&chip->chan[i]);
@@ -1373,7 +1276,7 @@ void Chip_Reset( Chip* chip, bool _opl3Mode, uint32_t rate ) {
 #endif
 }
 
-static inline uint32_t Chip_ForwardLFO( Chip* chip, uint32_t samples ) {
+static inline uint16_t Chip_ForwardLFO( Chip* chip, uint16_t samples ) {
 	//Check hom many samples there can be done before the value changes
 	uint32_t todo = LFO_MAX - chip->lfoCounter;
 	uint32_t count = (todo + LfoAdd - 1) / LfoAdd;
@@ -1383,7 +1286,7 @@ static inline uint32_t Chip_ForwardLFO( Chip* chip, uint32_t samples ) {
 	chip->vibratoShift = ( VibratoTable[ chip->vibratoIndex >> 2] & 7) + chip->vibratoStrength; 
 	chip->tremoloValue = TremoloTable[ chip->tremoloIndex ] >> chip->tremoloStrength;
 
-	if ( count > samples ) {
+	if ( count > (uint32_t)samples ) {
 		count = samples;
 		chip->lfoCounter += count * LfoAdd;
 	} else {
@@ -1398,7 +1301,7 @@ static inline uint32_t Chip_ForwardLFO( Chip* chip, uint32_t samples ) {
 			chip->tremoloIndex = 0;
 	}
 
-	return count;
+	return (uint16_t)count;
 }
 
 
@@ -1413,11 +1316,7 @@ static inline void Chip_WriteBD( Chip* chip, uint8_t val ) {
 	if ( val & 0x20 ) {
 		//Drum was just enabled, make sure channel 6 has the right synth
 		if ( change & 0x20 ) {
-			if ( chip->opl3Active ) {
-				chip->chan[6].synthHandler = Channel_Block_sm3Percussion;// &Channel::BlockTemplate< sm3Percussion >; 
-			} else {
-				chip->chan[6].synthHandler = Channel_Block_sm2Percussion;// &Channel::BlockTemplate< sm2Percussion >; 
-			}
+			chip->chan[6].synthHandler = Channel_Block_smPercussion;
 		}
 		//Bass Drum
 		if ( val & 0x10 ) {
@@ -1568,52 +1467,24 @@ uint32_t Chip_WriteAddr( Chip* chip, uint32_t port, uint8_t val ) {
 	return 0u;
 }
 
-int Chip_GenerateBlock2( Chip* chip, Bitu total, int16_t* output ) {
+int Chip_Generate( Chip* chip, int16_t* output, uint16_t count) {
 	int16_t* base = output;
-	while ( total > 0UL ) {
-		uint32_t samples = Chip_ForwardLFO( chip, (uint32_t)total );
+	Channel *upperBound = chip->opl3Active ? chip->chan + 18 : chip->chan + 9;
+
+	memset(output, 0, count * 4);
+
+	while ( count > 0 ) {
+		uint16_t samples = Chip_ForwardLFO( chip, count );
 		Channel* ch;
-//		_asm{int 3};
-		// memset(output, 0, (size_t) (sizeof(int16_t) * samples * 2));
-		Chip_Memset(output, 0, samples << 2);
-//		int count = 0;
-		for( ch = chip->chan; ch < chip->chan + 9; ) {
-//			count++;
-//			printf("total = %lu, samples = %lu ch = %p limit %p\n", total,  samples, ch, chip->chan+9);
+		for( ch = chip->chan; ch < upperBound; ) {
 			ch = ch->synthHandler( ch, chip, samples, output );
-//			getch();
-//			break;
 		}
 
-		total -= samples;
-		output += samples * 2;
+		count -= samples;
+		output += samples << 1;
 	}
-	return output - base;
-}
 
-int Chip_GenerateBlock3( Chip* chip, Bitu total, int16_t* output  ) {
-	int16_t* base = output;
-	while ( total > 0UL ) {
-		uint32_t samples = Chip_ForwardLFO( chip, (uint32_t)total );
-		Channel* ch;
-		Chip_Memset(output, 0, samples << 2);
-//		int count = 0;
-		for( ch = chip->chan; ch < chip->chan + 18; ) {
-//			count++;
-			ch = (ch->synthHandler)(ch, chip, samples, output );
-		}
-		total -= samples;
-		output += samples * 2;
-	}
 	return output - base;
-}
-
-int Chip_Generate( Chip* chip, int16_t* buffer, uint32_t samples) {
-	if ( !chip->opl3Active ) {
-		return Chip_GenerateBlock2( chip, samples, buffer );
-	} else {
-		return Chip_GenerateBlock3( chip, samples, buffer );
-	}
 }
 
 #ifdef DUMP_TABLES
@@ -1658,9 +1529,9 @@ void DumpTables( Chip* chip ) {
 #endif
 
 #if (( DBOPL_WAVE == WAVE_TABLELOG ) || ( DBOPL_WAVE == WAVE_TABLEMUL ))
-	fprintf(f, "static uint16_t WaveTable[8 * 512] = { \n");
+	fprintf(f, "static int16_t WaveTable[8 * 512] = { \n");
 	for (i = 0; i < 8 * 512; i++) {
-		fprintf(f, "%u, ", WaveTable[i]);
+		fprintf(f, "%d, ", WaveTable[i]);
 		if (i % 16 == 15) fprintf(f, "\n");
 	}
 	fprintf(f, "\n}; \n");

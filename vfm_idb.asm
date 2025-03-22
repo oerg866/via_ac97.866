@@ -10,8 +10,8 @@
 
     INCLUDE vfm_icmn.asm
 
-Chip_Generate                       PROTO NEAR C, opl3_chip:PTR WORD, buf:PTR WORD, count:DWORD
-Chip_WriteReg                       PROTO NEAR C, opl3_chip:PTR WORD, reg:WORD, data:BYTE
+Chip_Generate   PROTO NEAR C, opl3_chip:PTR WORD, buf:PTR WORD, count:WORD
+Chip_WriteReg   PROTO NEAR C, opl3_chip:PTR WORD, reg:WORD, data:BYTE
 
 vfm_dmaInterruptHandler PROC FAR
     int 3
@@ -92,12 +92,11 @@ _processRegisters:
     call Chip_WriteReg
     add sp, 6
 
-    db 066h, 068h
-    dd 1
+    push 1
     push di
     push offset g_vfm_oplChip
     call Chip_Generate  
-    add sp, 8
+    add sp, 6
 
     pop cx
 
@@ -127,13 +126,12 @@ _noError:
 
 ;_generateStream:
     ; Call OPL emulator, c doesnt save the regs here :(
-    
-    push 0
+
     push cx
     push di
     push offset g_vfm_oplChip
     call Chip_Generate  
-    add sp, 8
+    add sp, 6
 
 _generateStreamSkip:
 

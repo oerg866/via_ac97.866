@@ -60,7 +60,7 @@ typedef Bits ( DB_FASTCALL *WaveHandler) ( Bitu i, Bitu volume );
 #endif
 
 typedef Bits ( *Operator_VolumeHandler) ( struct _Operator* op );
-typedef struct _Channel* ( *Channel_SynthHandler) ( struct _Channel* ch, struct _Chip* chip, uint32_t samples, int16_t* output );
+typedef struct _Channel* ( *Channel_SynthHandler) ( struct _Channel* ch, struct _Chip* chip, uint16_t samples, int16_t* output );
 
 //Different synth modes that can generate blocks of data
 typedef enum {
@@ -204,57 +204,10 @@ typedef struct _Chip {
 
 #pragma pack()
 
-/*
-void Operator_SetState		( Operator* op, uint8_t s );
-void Operator_UpdateAttack	( Operator* op, const Chip* chip );
-void Operator_UpdateRelease	( Operator* op, const Chip* chip );
-void Operator_UpdateDecay	( Operator* op, const Chip* chip );
-
-void Operator_UpdateAttenuation	( Operator* op );
-void Operator_UpdateRates		( Operator* op, const Chip* chip );
-void Operator_UpdateFrequency	( Operator* op );
-
-void Operator_Write20	( Operator* op, const Chip* chip, uint8_t val );
-void Operator_Write40	( Operator* op, const Chip* chip, uint8_t val );
-void Operator_Write60	( Operator* op, const Chip* chip, uint8_t val );
-void Operator_Write80	( Operator* op, const Chip* chip, uint8_t val );
-void Operator_WriteE0	( Operator* op, const Chip* chip, uint8_t val );
-
-bool Operator_Silent	( Operator* op );
-void Operator_Prepare	( Operator* op, const Chip* chip );
-
-void Operator_KeyOn		( Operator* op, uint8_t mask );
-void Operator_KeyOff	( Operator* op, uint8_t mask );
-
-int32_t Operator_RateForward( Operator* op, uint32_t add );
-Bitu Operator_ForwardWave	( Operator* op );
-Bitu Operator_ForwardVolume	( Operator* op );
-
-Bits Operator_GetSample	( Operator* op, Bits modulation );
-Bits Operator_GetWave	( Operator* op, Bitu index, Bitu vol );
-
-//Forward the channel data to the operators of the channel
-void Channel_SetChanData( Channel* ch, const Chip* chip, uint32_t data );
-//Change in the chandata, check for new values and if we have to forward to operators
-void Channel_UpdateFrequency( Channel* ch, const Chip* chip, uint8_t fourOp );
-void Channel_UpdateSynth( Channel* ch, const Chip* chip);
-void Channel_WriteA0( Channel* ch, const Chip* chip, uint8_t val );
-void Channel_WriteB0( Channel* ch, const Chip* chip, uint8_t val );
-void Channel_WriteC0( Channel* ch, const Chip* chip, uint8_t val );
-
-//Return the maximum amount of samples before and LFO change
-uint32_t Chip_ForwardLFO( Chip* chip, uint32_t samples );
-uint32_t Chip_ForwardNoise( Chip* chip );
-void Chip_WriteBD( Chip* chip, uint8_t val );
+/* Write register, Bit 8 set = bank B */
 void Chip_WriteReg( Chip* chip, uint16_t reg, uint8_t val );
-uint32_t Chip_WriteAddr( Chip* chip, uint32_t port, uint8_t val );
-int Chip_GenerateBlock2( Chip* chip, Bitu total, int16_t* output );
-int Chip_GenerateBlock3( Chip* chip, Bitu total, int16_t* output );
-//Update the synth handlers in all channels
-void Chip_UpdateSynths( Chip* chip );
-*/
-void Chip_WriteReg( Chip* chip, uint16_t reg, uint8_t val );
-int Chip_Generate( Chip* chip, int16_t* buffer, uint32_t samples );
+/* Generate stream - Maximum allowed length is 16383 */
+int  Chip_Generate( Chip* chip, int16_t* output, uint16_t count );
 void Chip_Setup( Chip *chip, uint32_t rate );
 void Chip_Reset( Chip* chip, bool opl3Mode, uint32_t rate );
 

@@ -71,8 +71,8 @@ opl3_chip                           g_vfm_oplChip;
 #include "dbopl/dbopl.h"
 Chip                                g_vfm_oplChip;
 #define vfm_oplInit()               Chip_Reset(&g_vfm_oplChip, true, FM_PCM_SAMPLE_RATE)
-#define vfm_oplGenOne(buf)          Chip_Generate(&g_vfm_oplChip, buf, 1UL)
-#define vfm_oplGen(buf, samps)      Chip_Generate(&g_vfm_oplChip, buf, (uint32_t) (samps))
+#define vfm_oplGenOne(buf)          Chip_Generate(&g_vfm_oplChip, buf, 1)
+#define vfm_oplGen(buf, samps)      Chip_Generate(&g_vfm_oplChip, buf, samps)
 #define vfm_oplReg(reg, val)        Chip_WriteReg(&g_vfm_oplChip, reg, val)
 #endif
 
