@@ -88,6 +88,7 @@ Since port trapping and NMI assertion is done 100% in hardware, this does *not* 
 * VT82C686
 * VT82C686A
 * VT82C686B
+* VT8231 (VIA EPIA)
 
 These are found on many old Pentium 1/2/3 and Athlon/Duron motherboards, so you may be in luck!
 
