@@ -357,7 +357,6 @@ static void vfm_tsrSetupMemoryAndDma() {
     /* Safety first :-) */
     g_DMA_IRQOccured = 0;
     g_DMA_BufferIndex = 0;
-    memset(g_vfm_fmDmaMemPool, 0, VFM_MEM_POOL_SIZE);
  
     /* The first thing in the memory pool is the DMA table */
     g_vfm_fmDmaTable            = (v97_SgdTableEntry *) alignedPtr;

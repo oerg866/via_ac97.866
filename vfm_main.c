@@ -183,7 +183,7 @@ static void printUsage() {
 
 }
 
-int main(int argc, char *argv[]) {
+int vfm_main(const char *cmdLine) {
     pci_Device  dev;
     bool        tsrIsLoaded = vfm_isTsrLoaded();
 
@@ -196,13 +196,13 @@ int main(int argc, char *argv[]) {
 #endif
     vfm_puts("\n");
 
-    if (argc < 2) {
+    if (cmdLine[0] == 0) {
         printUsage();
         return 1;
     }
 
     /* check if program should send a test tone to OPL (not necessarily our device) */
-    if (argc > 1 && *argv[1] == 'p') {
+    if (cmdLine[0] == 'p') {
         vfm_fmGenerateTestTone();
         vfm_puts("OPL test tone sent\n");
         return 0;
@@ -210,7 +210,7 @@ int main(int argc, char *argv[]) {
 
 #ifdef DBG_BENCH
     /* check if program should do a OPL3 generation test & benchmark */
-    if (argc > 1 && *argv[1] == 'o') {
+    if (cmdLine[0] == 'o') {
         vfm_tsrOplTest();
         return 0;
     }
@@ -241,12 +241,12 @@ int main(int argc, char *argv[]) {
     }
     
     /* check if program should be loaded as TSR */
-    if (argc > 1 && *argv[1] == 'r') {
+    if (cmdLine[0] == 'r') {
         _dos_keep(0, 64000U >> 4);
     }
 
     /* check if program should do a basic fm generation test */
-    if (argc > 1 && *argv[1] == 'g') {
+    if (cmdLine[0] == 'g') {
         vfm_testToneLoopTest();
 
 #ifdef DBG_BUFFER
@@ -268,3 +268,12 @@ int main(int argc, char *argv[]) {
     vfm_tsrCleanup();
     return 0;
 }
+
+#ifdef DEBUG
+int main(int argc, char *argv[]) {
+    if (argc > 1)
+        return vfm_main(argv[1]);
+    else
+        return vfm_main("");
+}
+#endif
