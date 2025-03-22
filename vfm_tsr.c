@@ -310,7 +310,9 @@ static void vfm_tsrSetupGlobals(pci_Device dev) {
     g_vfm_pciIrq    = pci_read8(dev, V97_PCI_REG_IRQ_NUM);
 
     /* In case of VT8231, the FM SGD Registers moved from I/O 2x to I/O 5x */
-    if (pciRevision >= 0x40) {
+    DBG_PRINT("Chip revision: 0x%02x\n", pciRevision);
+
+    if (pciRevision & 0xF0 == 0x40) {
         vfm_puts("VT8231 detected!\n\n");
         g_vfm_ioBaseDma += 0x0030;
     }
