@@ -50,8 +50,6 @@ u16 vfm_tsrGetDmaBufferSize();
 u16 vfm_tsrGetDmaBufferCount();
 /* Gets size of TSR's NMI handler */
 u16 vfm_tsrGetNmiHandlerSize();
-/* Gets size of the whole TSR */
-u16 vfm_tsrGetTsrSize();
 
 /* Custom puts method to avoid MS C Library usage */
 void vfm_puts(const char *str);

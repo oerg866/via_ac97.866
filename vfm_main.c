@@ -242,7 +242,9 @@ int vfm_main(const char *cmdLine) {
     
     /* check if program should be loaded as TSR */
     if (cmdLine[0] == 'r') {
-        _dos_keep(0, 64000U >> 4);
+        vfm_terminateAndStayResident();
+        //_dos_keep(0, 64000U >> 4);
+        return -1;
     }
 
     /* check if program should do a basic fm generation test */

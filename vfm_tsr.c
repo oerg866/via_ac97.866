@@ -535,11 +535,33 @@ void vfm_tsrOplTest() {
 #endif
 
 void vfm_terminateAndStayResident() {
-    /* 
-    TODO 
-    _dos_keep(0, (vfm_getTsrSize()+15) >> 4);
-    */
-    
+    u16 paras;
+    u16 _psp;   /* pspspspspspspspsps :3 */
+    u16 _ss;
+    u16 _sp;
+
+   _asm {
+        push es
+        mov ah, 0x51
+        int 0x21            /* Get PSP segment in bx */
+        mov _psp, bx
+        mov es, es:[0x2C]   /* Get environment block */
+        mov ah, 0x49
+        int 0x21            /* Deallocate */
+        pop es
+
+        mov _ss, ss         /* Save Stack segment and pointer for size calculation */
+        mov _sp, sp
+    }
+
+    /*  Calculation from A to Z of DOS Programming, Chapter 27 'TSR PROGRAMMING'.
+        I have no idea if this is correct. But it seems? to work? maybe? */
+
+    paras = _ss + (_sp >> 4) - _psp + 0x100; /* I kept adding to this value until it stopped crashing... Eto bleh...*/
+
+    DBG_PRINT("psp %04x, ss %04x, sp %04x, paragraphs: %u\n", _psp, _ss, _sp, paras);
+
+    _dos_keep(0, paras);
 }
 
 void vfm_tsrUnload() {
@@ -578,8 +600,4 @@ u16 vfm_tsrGetNmiHandlerSize() {
     u32 startPhys = vfm_tsrGetPhysAddr(vfm_nmiHandler);
     u32 endPhys   = vfm_tsrGetPhysAddr(vfm_nmiHandlerEnd);
     return (u16) (endPhys - startPhys);
-}
-
-u16 vfm_tsrGetTsrSize() {
-    return (u16) vfm_tsrGetTsrSize;
 }
