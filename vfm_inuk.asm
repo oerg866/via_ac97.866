@@ -13,26 +13,6 @@
 OPL3_Generate2ChResampled           PROTO NEAR C, opl3_chip:PTR WORD, buf:PTR WORD
 OPL3_WriteReg                       PROTO NEAR C, opl3_chip:PTR WORD, reg:WORD, data:BYTE
 
-SWAP_STACK  MACRO BACKUP, NEWSTACK
-    cli
-    mov cs:[BACKUP+0], ax
-    mov cs:[BACKUP+2], ss
-    mov cs:[BACKUP+4], sp
-    mov cs:[BACKUP+6], ds
-    mov ax, SEG NEWSTACK
-    mov ds, ax
-    mov ss, ax
-    lea sp, NEWSTACK
-;    lea bp, NEWSTACK
-    ENDM
-
-RESTORE_STACK MACRO BACKUP
-    mov ax, cs:[BACKUP+0]
-    mov ss, cs:[BACKUP+2]
-    mov sp, cs:[BACKUP+4]
-    mov ds, cs:[BACKUP+6]
-    ENDM
-
 vfm_dmaInterruptHandler PROC FAR
 ;    int 3
 

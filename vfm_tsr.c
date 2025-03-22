@@ -34,18 +34,18 @@ typedef void (_interrupt _far *IRQHANDLER)(void);
     The reason we do it this way is because traditional "code models" in DOS don't support arbitrary data alignments
     so we allocate a memory pool larger than what's needed and then programatically set the pointers */
 
-u8                                  g_vfm_fmDmaMemPool[VFM_MEM_POOL_SIZE];  /* Memory poool for SGD Table + Buffers + Alignmnet reserve */
+u8                                  g_vfm_fmDmaMemPool[VFM_MEM_POOL_SIZE] = { 0 };  /* Memory pool for SGD Table + Buffers + Alignmnet reserve */
 v97_SgdTableEntry                  *g_vfm_fmDmaTable = NULL;                /* Pointer to SGD Table */
 u32                                 g_vfm_fmDmaTablePhysAddress = 0;        /* Physical 32-Bit address of SGD table */
-i16                                *g_vfm_fmDmaBuffers[NUM_BUFS];           /* Pointer list for all DMA buffers */
+i16                                *g_vfm_fmDmaBuffers[NUM_BUFS] = { 0 };   /* Pointer list for all DMA buffers */
 
-pci_Device                          g_vfm_pciDevice;                        /* PCI audio device structure (bus, slot, function) */
-u16                                 g_vfm_pciIrq    = 0;                    /* Interrupt of the PCI Audio Device */
-bool                                g_vfm_slaveIrq;                         /* Device is on master/slave PIC (true if IRQ > 7) */
-u16                                 g_vfm_ioBaseDma = 0;                    /* Base I/O port for Audio Codec / SGD Interface */
-u16                                 g_vfm_ioBaseNmi = 0;                    /* Base I/O port for FM NMI Status / Data */
-vfm_VirtualDmaDescriptor            g_vfm_vdsDescriptor;                    /* VDS Descriptor for Virtual DMA services */
-bool                                g_vfm_vdsUsed = false;                  /* Flag indicating that VDS is used in this session */
+pci_Device                          g_vfm_pciDevice     = { 0 };            /* PCI audio device structure (bus, slot, function) */
+u16                                 g_vfm_pciIrq        = 0;                /* Interrupt of the PCI Audio Device */
+bool                                g_vfm_slaveIrq      = false;            /* Device is on master/slave PIC (true if IRQ > 7) */
+u16                                 g_vfm_ioBaseDma     = 0;                /* Base I/O port for Audio Codec / SGD Interface */
+u16                                 g_vfm_ioBaseNmi     = 0;                /* Base I/O port for FM NMI Status / Data */
+vfm_VirtualDmaDescriptor            g_vfm_vdsDescriptor = { 0 };            /* VDS Descriptor for Virtual DMA services */
+bool                                g_vfm_vdsUsed       = false;            /* Flag indicating that VDS is used in this session */
 
 /* Definitions from vfm_isr.asm */
 extern u8                           g_DMA_IRQOccured;                       /* Flag by ISR when device IRQ has occured *and* was handled by us */

@@ -213,9 +213,9 @@ static uint8_t TremoloTable[TREMOLO_TABLE];
 #endif //PRECALC_TBL
 
 //Start of a channel behind the chip struct start
-static uint16_t ChanOffsetTable[32];
+static uint16_t ChanOffsetTable[32] = {0};
 //Start of an operator behind the chip struct start
-static uint16_t OpOffsetTable[64];
+static uint16_t OpOffsetTable[64] = {0};
 
 //Shift strength for the ksl value determined by ksl strength
 static const uint8_t KslShiftTable[4] = {
