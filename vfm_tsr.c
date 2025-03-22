@@ -349,7 +349,7 @@ static void vfm_tsrSetupMemoryAndDma() {
     physAddr = vfm_tsrGetPhysAddr(alignedPtr);
 
     /* Attempt to set up virtual DMA region in case we're being LoadHigh'd */
-    if (vfm_setupVirtualDMA(alignedPtr)) {
+    if (vfm_setupVirtualDMA(alignedPtr) && g_vfm_vdsDescriptor.physAddr != 0UL) {
         /* Override since physAddr may be remapped for HMA */
         physAddr = g_vfm_vdsDescriptor.physAddr;
     }
