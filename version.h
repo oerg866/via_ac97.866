@@ -1,1 +1,1 @@
-#define V97_VERSION "0.5"
+#define V97_VERSION "0.6"
