@@ -1638,13 +1638,15 @@ void DumpTables( Chip* chip ) {
 		fprintf(f, "%luUL, ", chip->attackRates[i]);
 	}
 	fprintf(f, "\n}; \n");
-	
+
+#if ( DBOPL_WAVE == WAVE_HANDLER ) || ( DBOPL_WAVE == WAVE_TABLELOG )
 	fprintf(f, "static uint16_t ExpTable[256] = { \n");
 	for (i = 0; i < 256; i++) {
 		fprintf(f, "%u, ", ExpTable[i]);
 		if (i % 16 == 15) fprintf(f, "\n");
 	}
 	fprintf(f, "\n}; \n");
+#endif
 
 #if ( DBOPL_WAVE == WAVE_HANDLER )
 	fprintf(f, "static uint16_t SinTable[512] = { \n");
