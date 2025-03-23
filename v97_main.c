@@ -572,7 +572,7 @@ static const args_arg v97_supportedArgs[] = {
     { "nosb",     NULL,  "Force Disable Sound Blaster", ARG_FLAG, &v97_args.sb.setup, NULL, v97_argSbDisable }, /* Enable flag will be cleared by initial struct memset */
 
     /* Midi settings */
-    { "midi",   "port", "Force Enable MIDI Port", ARG_ARRAY(ARG_U16, 3), &v97_args.midi.setup, &v97_args.midi.port, v97_argMidiSetup},
+    { "midi",   "port", "Force Enable MIDI Port", ARG_U16, &v97_args.midi.setup, &v97_args.midi.port, v97_argMidiSetup},
                     ARGS_EXPLAIN("port: Midi I/O Port"),
                     ARGS_EXPLAIN("      (0x330, 0x310, 0x320, 0x330)"),
     { "nomidi", NULL,  "Force Disable MIDI Port", ARG_FLAG, &v97_args.midi.setup, NULL, v97_argMidiDisable }, /* Enable flag will be cleared by initial struct memset */
